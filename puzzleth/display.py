@@ -30,7 +30,7 @@ class Display:
         global _active
         from pygame._sdl2.video import Renderer, Texture, Window
 
-        self.window = Window("Brain Puzzlerer", (T.W, T.H), resizable=True)
+        self.window = Window("Puzzleth", (T.W, T.H), resizable=True)
         self.window.minimum_size = (T.W // 2, T.H // 2)
         try:
             self.renderer = Renderer(self.window, vsync=True)

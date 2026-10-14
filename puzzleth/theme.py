@@ -1,4 +1,6 @@
 """Palette, layout constants and font loading."""
+import os
+
 import pygame
 
 W, H = 1280, 800
@@ -31,31 +33,23 @@ INDEX_NAMES = {
     "PRI": "Perceptual Reasoning",
     "WMI": "Working Memory",
     "PSI": "Processing Speed",
-    "FSIQ": "Full Scale IQ",
+    "FSIQ": "Full Scale Score",
 }
 
-_SANS = ["inter", "adwaitasans", "segoeui", "helveticaneue", "sfprotext", "notosans", "dejavusans", "freesans", "arial"]
-_MONO = ["jetbrainsmono", "iosevkanerdfontmono", "adwaitamono", "dejavusansmono", "consolas", "menlo", "freemono"]
+_FONT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fonts")
+# bundled so the game looks the same everywhere, including browsers (both fonts: SIL OFL 1.1)
+_FILES = {(False, False): "Inter-Regular.ttf", (True, False): "Inter-Bold.ttf",
+          (False, True): "JetBrainsMono-Regular.ttf", (True, True): "JetBrainsMono-Bold.ttf"}
 _fonts = {}
-_names = {}
-
-
-def _pick(candidates):
-    key = tuple(candidates)
-    if key not in _names:
-        available = set(pygame.font.get_fonts())
-        _names[key] = next((c for c in candidates if c in available), None)
-    return _names[key]
 
 
 def font(size, bold=False, mono=False):
     key = (size, bold, mono)
     f = _fonts.get(key)
     if f is None:
-        name = _pick(_MONO if mono else _SANS)
-        if name:
-            f = pygame.font.SysFont(name, size, bold=bold)
-        else:
+        try:
+            f = pygame.font.Font(os.path.join(_FONT_DIR, _FILES[(bold, mono)]), size)
+        except (OSError, FileNotFoundError, pygame.error):
             f = pygame.font.Font(None, int(size * 1.35))
             f.set_bold(bold)
         _fonts[key] = f

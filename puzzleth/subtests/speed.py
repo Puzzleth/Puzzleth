@@ -104,8 +104,8 @@ class Coding(SpeedSubtest):
         "120-second limit. Work in order — skipping is not allowed.",
         "Score = number of correct responses (max 135).",
     ]
-    controls = ["Here the lookup is reversed: each box shows a symbol —",
-                "find it in the key and type its digit (1–9). The key is new every session."]
+    controls = ["Here the lookup is reversed: each box shows a symbol. Find it in the key and type its digit "
+                "(1–9), or tap it in the key. The key is new every session."]
 
     COLS = 15
     ROWS = 2
@@ -139,9 +139,18 @@ class Coding(SpeedSubtest):
         s = self.seq if self.run_mode else self.practice_seq
         return s[min(self.pos, len(s) - 1)]
 
+    def _key_rect(self, i):
+        kw = 76
+        kx0 = T.W // 2 - kw * 9 // 2
+        return pygame.Rect(kx0 + i * kw, 118, kw, 132)
+
     def handle_item(self, e):
+        d = None
         if e.type == pygame.KEYDOWN and e.unicode and e.unicode in "123456789":
             d = int(e.unicode)
+        elif e.type == pygame.MOUSEBUTTONDOWN and e.button == 1:
+            d = next((i + 1 for i in range(9) if self._key_rect(i).collidepoint(e.pos)), None)
+        if d is not None:
             ok = d == self.current
             if self.run_mode:
                 self.responses.append(d)

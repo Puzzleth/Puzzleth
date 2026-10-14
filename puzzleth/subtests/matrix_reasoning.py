@@ -49,6 +49,8 @@ class MatrixReasoning(ItemSubtest):
     start_item = 4
     discontinue_n = 3
     max_raw = 26
+    challenge = True
+    max_level = 32
     rules = [
         "Look at an incomplete matrix or analogy and pick the option that completes it.",
         "Rules can act along rows, columns, or both: shape, colour, number, size, fill, rotation.",
@@ -74,7 +76,9 @@ class MatrixReasoning(ItemSubtest):
             return 3, 2, ["col", "row", "latin"]
         if n <= 22:
             return 3, 3, ["latin", "latin", "col", "row"]
-        return 3, 4, ["latin"]
+        if n <= 29:   # 27+ only exist in challenge modes
+            return 3, 4, ["latin"]
+        return 3, 5, ["latin"]
 
     def make_item(self, n):
         r = self.rng

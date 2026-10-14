@@ -7,6 +7,9 @@ ItemSubtest implements the WAIS administration rules:
                     below that point receive full credit,
   * discontinue   - stop after N consecutive scores of 0,
   * time limits   - per item, where the real test has them.
+
+With a ``ladder`` (see challenge.py) the WAIS rules are replaced by a fixed-length set of puzzles at
+levels the ladder picks, which may go past ``n_items`` up to ``max_level``.
 """
 import random
 
@@ -16,6 +19,7 @@ from .. import gfx
 from .. import theme as T
 
 CONTINUE_KEYS = (pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_SPACE)
+PAUSE_RECT = pygame.Rect(T.W - 170, T.H - 49, 140, 38)   # the app opens the pause menu on a click here
 
 
 class Subtest:
@@ -37,6 +41,14 @@ class Subtest:
     @property
     def accent(self):
         return T.INDEX_COLORS[self.index]
+
+    @property
+    def touch(self):
+        return getattr(self.app, "touch", False)
+
+    def prompt(self, keys, tap="Tap to continue"):
+        """Instruction text that fits the input device."""
+        return tap if self.touch else keys
 
     def setup(self):
         """Called once (after rng exists) before the first item is generated."""
@@ -78,7 +90,12 @@ class Subtest:
             x += streak_max * 16 + 10
         if rule_text:
             gfx.text(surf, rule_text, (x, y), 14, T.DIM, anchor="midleft")
-        gfx.text(surf, "Esc  pause", (T.W - 40, y), 14, T.DIM, anchor="midright")
+        self.draw_pause_button(surf)
+
+    def draw_pause_button(self, surf):
+        gfx.panel(surf, PAUSE_RECT, T.PANEL, T.BORDER, radius=19)
+        gfx.text(surf, "Pause" if self.touch else "Pause  (Esc)", PAUSE_RECT.center, 15, T.MUTED, bold=True,
+                 anchor="center")
 
     def draw_timer(self, surf, remaining, limit, center=(T.W - 70, 40), r=22):
         frac = max(0.0, remaining / limit) if limit else 0
@@ -94,9 +111,14 @@ class ItemSubtest(Subtest):
     start_item = 1
     discontinue_n = 3
     has_sample = True
+    challenge = False       # supports rated sets and the daily challenge
+    max_level = None        # hardest generator level (defaults to n_items)
 
-    def __init__(self, app, feedback=True, seed=None):
+    def __init__(self, app, feedback=True, seed=None, ladder=None):
         super().__init__(app, feedback, seed)
+        self.ladder = ladder
+        if ladder:
+            self.feedback = True
         self.scores = {}
         self.order = []
         self.phase = "forward"
@@ -106,7 +128,10 @@ class ItemSubtest(Subtest):
         self.fb_t = 0.0
         self.item_t = 0.0
         self.setup()
-        self._begin(0 if self.has_sample else self.start_item)
+        if ladder:
+            self._begin(ladder.next_level())
+        else:
+            self._begin(0 if self.has_sample else self.start_item)
 
     # --- hooks for subclasses
     def make_item(self, n):
@@ -148,6 +173,9 @@ class ItemSubtest(Subtest):
 
     def _begin(self, n):
         self.cur = n
+        seed = self.ladder.item_seed() if self.ladder else None
+        if seed is not None:
+            self.rng = random.Random(seed)
         self.item = self.make_item(n)
         self.item_t = 0.0
         self.state = "item"
@@ -158,7 +186,10 @@ class ItemSubtest(Subtest):
         if self.state != "item":
             return
         mx = self.item_max(self.cur)
-        if self.cur != 0:
+        if self.ladder:
+            self.ladder.record(self.cur, points > 0)
+            self.on_ladder_result()
+        elif self.cur != 0:
             self.scores[self.cur] = points
             self.order.append(self.cur)
         show = self.feedback or self.cur == 0
@@ -214,7 +245,21 @@ class ItemSubtest(Subtest):
                 raw += sum(self.item_max(i) for i in range(1, low))
         return raw
 
+    def on_ladder_result(self):
+        """Hook: the ladder recorded a result (the app saves rating progress here)."""
+        if hasattr(self.app, "ladder_progress"):
+            self.app.ladder_progress(self)
+
     def _advance(self):
+        if self.ladder:
+            nxt = self.ladder.next_level()
+            if nxt is None:
+                if not self.done:
+                    self.done = True
+                    self.app.ladder_done(self)
+            else:
+                self._begin(nxt)
+            return
         nxt = self.next_item()
         if nxt is None:
             self.finish(self.raw_score(), {"items": len(self.order), "discontinued": self._zero_run() >= self.discontinue_n})
@@ -245,10 +290,14 @@ class ItemSubtest(Subtest):
                 self._advance()
 
     def item_label(self):
+        if self.ladder:
+            lad = self.ladder
+            tag = f"{lad.label()}  ·  puzzle {lad.position + (self.state == 'item')} of {lad.length}  ·  level {self.cur}"
+            return tag + ("  (beyond the real test)" if self.cur > self.n_items else "")
         if self.is_sample:
             return "Sample item"
         tag = f"Item {self.cur} of {self.n_items}"
-        if self.phase == "reverse":
+        if self.phase == "reverse" and self.feedback:   # under test conditions this would leak scores
             tag += "  ·  reverse order"
         return tag
 
@@ -267,7 +316,30 @@ class ItemSubtest(Subtest):
                 self.draw_feedback(surf)
             else:
                 gfx.overlay(surf, T.BG, 160 * gfx.ease_out(self.fb_t / 0.35))
-        self.draw_footer(surf, self.footer_rule(), self.admin_zero_streak(), self.discontinue_n)
+        if self.ladder:
+            self._draw_ladder_footer(surf)
+        elif self.feedback:
+            self.draw_footer(surf, self.footer_rule(), self.admin_zero_streak(), self.discontinue_n)
+        else:
+            # the real examinee never sees a running count of misses
+            self.draw_footer(surf, self.footer_rule())
+
+    def _draw_ladder_footer(self, surf):
+        y = T.H - 30
+        x = 40
+        for i in range(self.ladder.length):
+            if i < len(self.ladder.results):
+                col = T.GOOD if self.ladder.results[i][1] else T.BAD
+            else:
+                col = self.accent if i == len(self.ladder.results) else T.TRACK
+            pygame.draw.rect(surf, col, (x + i * 22, y - 8, 16, 16), border_radius=4)
+        x += self.ladder.length * 22 + 12
+        if self.ladder.kind == "rated":
+            msg = f"Rating {self.ladder.rating:.0f}  ·  puzzles adapt to your rating"
+        else:
+            msg = "Same puzzles for everyone today  ·  easy to brutal"
+        gfx.text(surf, msg, (x, y), 14, T.DIM, anchor="midleft")
+        self.draw_pause_button(surf)
 
     def draw_feedback(self, surf):
         p, mx = self.fb["points"], self.fb["max"]
@@ -285,7 +357,8 @@ class ItemSubtest(Subtest):
         gfx.text(surf, head, (rect.x + 76, rect.y + 14), 19, col, bold=True)
         if self.fb["explain"]:
             gfx.text(surf, self.fb["explain"], (rect.x + 76, rect.y + 42), 15, T.TEXT)
-        gfx.text(surf, "Enter to continue", (rect.right - 20, rect.centery), 15, T.MUTED, anchor="midright")
+        gfx.text(surf, self.prompt("Enter to continue"), (rect.right - 20, rect.centery), 15, T.MUTED,
+                 anchor="midright")
 
 
 class SpeedSubtest(Subtest):
@@ -393,7 +466,8 @@ class SpeedSubtest(Subtest):
                  T.MUTED, anchor="center")
         gfx.text(surf, "No feedback is given during the timed section.", (c[0], c[1] + 12), 20, T.MUTED,
                  anchor="center")
-        gfx.text(surf, "Press Space to begin", (c[0], c[1] + 80), 24, self.accent, bold=True, anchor="center")
+        gfx.text(surf, self.prompt("Press Space to begin", "Tap to begin"), (c[0], c[1] + 80), 24, self.accent,
+                 bold=True, anchor="center")
 
     def draw_item(self, surf):
         pass
