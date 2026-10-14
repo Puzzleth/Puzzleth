@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# Launch Brain Puzzlerer: ./puzzle
+cd "$(dirname "$(readlink -f "$0")")" || exit 1
+export PYGAME_HIDE_SUPPORT_PROMPT=1
+
+if python3 -c "import pygame" 2>/dev/null; then
+  exec python3 main.py "$@"
+elif command -v nix-shell >/dev/null 2>&1; then
+  exec nix-shell --run "python3 main.py"
+else
+  echo "pygame-ce is not installed. Run:  pip install -r requirements.txt" >&2
+  exit 1
+fi
