@@ -160,3 +160,43 @@ class DigitEntry:
                 pygame.draw.rect(surf, self.accent, (tr.right + 4, r.centery - 18, 3, 36), border_radius=1)
         if label:
             gfx.text(surf, label, (cx, cy + 52), 15, T.MUTED, anchor="midtop")
+
+
+class Keypad:
+    """A row of on-screen keys for touch screens. Taps come back as KEYDOWN events, so the
+    keyboard handling works unchanged."""
+
+    SPECIAL = {"Del": (pygame.K_BACKSPACE, ""), "OK": (pygame.K_RETURN, "\r")}
+
+    def __init__(self, center_y, labels, accent=T.ACCENT, key_w=78, key_h=64, gap=10):
+        self.labels = labels
+        self.accent = accent
+        total = len(labels) * key_w + (len(labels) - 1) * gap
+        x0 = T.W // 2 - total // 2
+        self.rects = [pygame.Rect(x0 + i * (key_w + gap), center_y - key_h // 2, key_w, key_h)
+                      for i in range(len(labels))]
+        self.flash = {}
+
+    def handle(self, e):
+        if e.type != pygame.MOUSEBUTTONDOWN or e.button != 1:
+            return None
+        for label, r in zip(self.labels, self.rects):
+            if r.collidepoint(e.pos):
+                self.flash[label] = 1.0
+                key, uni = self.SPECIAL[label] if label in self.SPECIAL else (getattr(pygame, f"K_{label}"), label)
+                return pygame.event.Event(pygame.KEYDOWN, key=key, unicode=uni, mod=0, scancode=0)
+        return None
+
+    def update(self, dt):
+        for k in list(self.flash):
+            self.flash[k] -= dt * 5
+            if self.flash[k] <= 0:
+                del self.flash[k]
+
+    def draw(self, surf):
+        for label, r in zip(self.labels, self.rects):
+            f = self.flash.get(label, 0)
+            ok = label == "OK"
+            fill = gfx.lerp_color(gfx.lerp_color(T.PANEL, self.accent, 0.25 if ok else 0.06), self.accent, 0.5 * f)
+            gfx.panel(surf, r, fill, self.accent if ok else T.BORDER, radius=12)
+            gfx.text(surf, label, r.center, 26 if len(label) == 1 else 19, T.TEXT, bold=True, anchor="center")

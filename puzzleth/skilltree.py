@@ -75,7 +75,7 @@ class SkillTree:
         best = data.get("best", {})
         indexes = data.get("indexes", {})
         fs = data.get("fsiq")
-        cx, cy = self.center
+        hide = data.get("hide", False)   # show what's been measured, but no numbers
 
         # connections
         for idx, codes in scoring.INDEX_SUBTESTS.items():
@@ -84,17 +84,18 @@ class SkillTree:
             lit_idx = idx in indexes and self._idx_frac(idx, anim) > 0
             self._link(surf, self.center, ip, col, lit_idx and fs is not None and self._fs_frac(anim) > 0, t, FS_R, IDX_R)
             for code in codes:
-                lit = code in scaled and self._sub_fill(code, scaled[code], anim) > 0
+                lit = code in scaled and self._sub_fill(code, 19 if hide else scaled[code], anim) > 0
                 self._link(surf, ip, self.sub_pos[code], col, lit, t, IDX_R, SUB_R)
 
         for code, pos in self.sub_pos.items():
             idx = BY_CODE[code].index
             s = scaled.get(code)
-            filled = self._sub_fill(code, s, anim) if s else 0
-            self._sub_node(surf, pos, code, s, filled, best.get(code, 0), T.INDEX_COLORS[idx], hover == code, t)
+            filled = self._sub_fill(code, 19 if hide else s, anim) if s else 0
+            ghost = 0 if hide else best.get(code, 0)
+            self._sub_node(surf, pos, code, s, filled, ghost, T.INDEX_COLORS[idx], hover == code, t, hide)
         for idx, pos in self.index_pos.items():
-            self._index_node(surf, pos, idx, indexes.get(idx), self._idx_frac(idx, anim), hover == idx, t)
-        self._fsiq_node(surf, self.center, fs, self._fs_frac(anim), hover == "FSIQ", t)
+            self._index_node(surf, pos, idx, indexes.get(idx), self._idx_frac(idx, anim), hover == idx, t, hide)
+        self._fsiq_node(surf, self.center, fs, self._fs_frac(anim), hover == "FSIQ", t, hide)
 
     def _link(self, surf, a, b, col, lit, t, ra, rb):
         ax, ay = a
@@ -112,7 +113,7 @@ class SkillTree:
         else:
             gfx.thick_line(surf, p1, p2, 2, T.TRACK)
 
-    def _sub_node(self, surf, pos, code, scaled, filled, best, col, hover, t):
+    def _sub_node(self, surf, pos, code, scaled, filled, best, col, hover, t, hide=False):
         x, y = pos
         if filled:
             gfx.glow(surf, pos, 70 + filled * 2, col, 0.18 + 0.012 * filled + (0.1 if hover else 0))
@@ -121,14 +122,17 @@ class SkillTree:
         gfx.circle(surf, pos, SUB_R, gfx.lerp_color(T.PANEL, col, 0.12 if filled else 0.0))
         gfx.circle(surf, pos, SUB_R, col if hover else T.BORDER, 1)
         gfx.pips(surf, pos, SUB_RING, 6, 19, filled, col, ghost=best)
-        if scaled:
-            gfx.text(surf, str(filled), (x, y - 3), 24, T.TEXT, bold=True, anchor="center")
+        if scaled and hide:
+            gfx.text(surf, code, (x, y), 18, col, bold=True, anchor="center")
         else:
-            gfx.text(surf, "–", (x, y - 3), 22, T.DIM, bold=True, anchor="center")
-        gfx.text(surf, code, (x, y + 15), 11, col if scaled else T.DIM, bold=True, anchor="center")
+            if scaled:
+                gfx.text(surf, str(filled), (x, y - 3), 24, T.TEXT, bold=True, anchor="center")
+            else:
+                gfx.text(surf, "–", (x, y - 3), 22, T.DIM, bold=True, anchor="center")
+            gfx.text(surf, code, (x, y + 15), 11, col if scaled else T.DIM, bold=True, anchor="center")
         gfx.text(surf, BY_CODE[code].name, (x, y + SUB_RING + 16), 14, T.TEXT if hover else T.MUTED, anchor="center")
 
-    def _index_node(self, surf, pos, idx, score, frac, hover, t):
+    def _index_node(self, surf, pos, idx, score, frac, hover, t, hide=False):
         x, y = pos
         col = T.INDEX_COLORS[idx]
         has = score is not None and frac > 0
@@ -136,10 +140,13 @@ class SkillTree:
             gfx.glow(surf, pos, 130, col, 0.28 + (0.1 if hover else 0))
         gfx.circle(surf, pos, IDX_R, gfx.lerp_color(T.PANEL, col, 0.14 if has else 0.04))
         gfx.circle(surf, pos, IDX_R, col if (hover or has) else T.BORDER, 1)
-        target = (score - 50) / 100 if score is not None else 0
-        gfx.ring(surf, pos, IDX_RING, 8, target * frac if has else 0, col)
+        target = 1.0 if hide else (score - 50) / 100 if score is not None else 0
+        gfx.ring(surf, pos, IDX_RING, 8, target * frac if has else 0, gfx.scale_color(col, 0.6) if hide else col)
         # tick at the population mean (100)
         gfx.arc(surf, pos, IDX_RING, 12, math.pi - 0.02, math.pi + 0.02, T.MUTED)
+        if has and hide:
+            gfx.text(surf, idx, (x, y), 20, col, bold=True, anchor="center")
+            return
         if has:
             val = int(round(50 + (score - 50) * frac))
             gfx.text(surf, str(val), (x, y - 5), 30, T.TEXT, bold=True, anchor="center")
@@ -147,7 +154,7 @@ class SkillTree:
             gfx.text(surf, "?", (x, y - 5), 28, T.DIM, bold=True, anchor="center")
         gfx.text(surf, idx, (x, y + 20), 12, col, bold=True, anchor="center")
 
-    def _fsiq_node(self, surf, pos, score, frac, hover, t):
+    def _fsiq_node(self, surf, pos, score, frac, hover, t, hide=False):
         x, y = pos
         col = T.GOLD
         has = score is not None and frac > 0
@@ -158,14 +165,18 @@ class SkillTree:
             gfx.glow(surf, pos, 170, T.ACCENT, 0.08 + 0.04 * pulse)
         gfx.circle(surf, pos, FS_R, gfx.lerp_color(T.PANEL, col, 0.12 if has else 0.03))
         gfx.circle(surf, pos, FS_R, col if (has or hover) else T.BORDER, 1)
-        gfx.ring(surf, pos, FS_RING, 10, ((score - 40) / 120) * frac if has else 0, col)
+        target = 1.0 if hide else ((score - 40) / 120 if has else 0)
+        gfx.ring(surf, pos, FS_RING, 10, target * frac if has else 0, gfx.scale_color(col, 0.6) if hide else col)
         gfx.pips(surf, pos, FS_RING + 14, 2, 60, 0, col, track=gfx.lerp_color(T.BG, T.TRACK, 0.7), gap=0.05)
         # tick at the population mean: (100 - 40) / 120 = half way round
         gfx.arc(surf, pos, FS_RING, 14, math.pi - 0.02, math.pi + 0.02, T.MUTED)
-        if has:
+        if has and hide:
+            gfx.text(surf, "SCORE", (x, y - 6), 28, col, bold=True, anchor="center")
+            gfx.text(surf, "scores hidden", (x, y + 22), 11, T.MUTED, anchor="center")
+        elif has:
             val = int(round(40 + (score - 40) * frac))
             gfx.text(surf, str(val), (x, y - 8), 48, T.TEXT, bold=True, anchor="center")
-            gfx.text(surf, "FULL SCALE IQ", (x, y + 26), 11, col, bold=True, anchor="center")
+            gfx.text(surf, "FULL SCALE SCORE", (x, y + 26), 11, col, bold=True, anchor="center")
         else:
-            gfx.text(surf, "FSIQ", (x, y - 6), 30, T.DIM, bold=True, anchor="center")
+            gfx.text(surf, "SCORE", (x, y - 6), 28, T.DIM, bold=True, anchor="center")
             gfx.text(surf, "complete all 10", (x, y + 22), 11, T.DIM, anchor="center")

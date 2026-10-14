@@ -1,6 +1,14 @@
 #!/usr/bin/env python3
-"""Brain Puzzlerer — a WAIS-style cognitive training game."""
-from brainpuzzlerer.app import run
+"""Puzzleth: a WAIS-style puzzle game. Desktop: ./puzzle   Browser: see tools/build_web.sh"""
+import asyncio
 
-if __name__ == "__main__":
-    run()
+import pygame  # noqa: F401  (imported here so the web packager bundles it)
+
+from puzzleth.app import App
+
+
+async def main():
+    await App().run_async()
+
+
+asyncio.run(main())

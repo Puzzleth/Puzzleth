@@ -3,7 +3,7 @@ import pygame
 
 from .. import gfx
 from .. import theme as T
-from ..widgets import Button, DigitEntry
+from ..widgets import Button, DigitEntry, Keypad
 from .base import ItemSubtest
 
 NAMES = ["Ava", "Ben", "Chloe", "Dev", "Elena", "Farid", "Grace", "Hugo", "Iris", "Jonah", "Kira", "Leo",
@@ -113,7 +113,31 @@ def _tier5(r):
             f"remaining numbers?"), n * avg - drop
 
 
-TIERS = [_tier1, _tier2, _tier3, _tier4, _tier5]
+def _tier6(r):
+    """Challenge levels only: multi-step problems harder than any real item."""
+    name = r.choice(NAMES)
+    kind = r.randrange(5)
+    if kind == 0:
+        price = r.choice([100, 200, 300, 400, 500])
+        return (f"A ${price} bike goes up in price by 10%, then the new price is cut by 10%. "
+                f"What does it cost now?"), price * 99 // 100
+    if kind == 1:
+        a, b = r.choice([(3, 6), (4, 12), (6, 12), (10, 15), (12, 24), (20, 30)])
+        return (f"One pipe fills a tank in {a} hours, another in {b} hours. "
+                f"How many hours do they take working together?"), a * b // (a + b)
+    if kind == 2:
+        k = r.randint(4, 12)
+        return (f"{name} is three times as old as a cousin. In {k} years, {name} will be twice as old as the "
+                f"cousin. How old is the cousin now?"), k
+    if kind == 3:
+        n = 6 * r.randint(4, 15)
+        return f"Half of a number plus a third of the same number is {5 * n // 6}. What is the number?", n
+    a, b, t = r.choice([8, 10, 12, 15]), r.choice([10, 12, 15, 18, 20]), r.randint(2, 4)
+    return (f"Two cyclists start {(a + b) * t} miles apart and ride towards each other at {a} and {b} miles "
+            f"per hour. After how many hours do they meet?"), t
+
+
+TIERS = [_tier1, _tier2, _tier3, _tier4, _tier5, _tier6]
 
 
 class Arithmetic(ItemSubtest):
@@ -125,6 +149,8 @@ class Arithmetic(ItemSubtest):
     start_item = 6
     discontinue_n = 3
     max_raw = 22
+    challenge = True
+    max_level = 28
     rules = [
         "Word problems are read aloud and solved in your head — no paper or pencil.",
         "30-second limit per item, timed from the end of the reading.",
@@ -138,14 +164,15 @@ class Arithmetic(ItemSubtest):
 
     def setup(self):
         self.entry = DigitEntry((T.W // 2, 470), accent=self.accent)
-        self.repeat_btn = Button((T.W // 2 - 110, 560, 220, 46), "Repeat  (R)", self._repeat, self.accent,
+        self.repeat_btn = Button((T.W // 2 - 110, 560, 220, 46), "Repeat", self._repeat, self.accent,
                                  hotkeys=(pygame.K_r,), size=17)
+        self.keypad = Keypad(660, [str(d) for d in range(10)] + ["Del", "OK"], self.accent, key_w=74)
 
     def time_limit(self, n):
         return 30
 
     def make_item(self, n):
-        tier = 0 if n == 0 else min(4, (n - 1) * 5 // self.n_items)
+        tier = 0 if n == 0 else 5 if n > self.n_items else min(4, (n - 1) * 5 // self.n_items)
         q, ans = TIERS[tier](self.rng)
         words = len(q.split())
         return {"q": q, "ans": ans, "read": 1.5 + words * 0.3, "repeat_until": None, "repeated": False}
@@ -174,6 +201,8 @@ class Arithmetic(ItemSubtest):
     def handle_item(self, e):
         if self.repeat_btn.handle(e):
             return
+        if self.touch:
+            e = self.keypad.handle(e) or e
         if self.entry.handle(e) == "submit" and self.entry.value:
             ok = int(self.entry.value) == self.item["ans"]
             self.submit(1 if ok else 0, "" if ok else f"Answer: {self.item['ans']}")
@@ -183,6 +212,8 @@ class Arithmetic(ItemSubtest):
 
     def update_item(self, dt):
         self.entry.update(dt)
+        self.keypad.update(dt)
+        self.repeat_btn.label = "Repeat" if self.touch else "Repeat  (R)"
         self.repeat_btn.update(dt)
         if self.item["repeated"]:
             self.repeat_btn.enabled = False
@@ -200,8 +231,11 @@ class Arithmetic(ItemSubtest):
             gfx.text_block(surf, self.item["q"], (rect.x + 40, rect.y + 36), rect.w - 80, 27, T.TEXT, align="center")
         else:
             gfx.text(surf, "Problem hidden — solve it in your head", rect.center, 22, T.DIM, anchor="center")
-            gfx.text(surf, "(press R to hear it once more)" if not self.item["repeated"] else "(already repeated)",
+            again = "(tap Repeat to see it once more)" if self.touch else "(press R to hear it once more)"
+            gfx.text(surf, again if not self.item["repeated"] else "(already repeated)",
                      (rect.centerx, rect.centery + 34), 16, T.DIM, anchor="center")
         self.entry.draw(surf, label="your answer")
+        if self.touch and self.state == "item":
+            self.keypad.draw(surf)
         if self.state == "item" and not self.item["repeated"] and self.item_t >= self.item["read"]:
             self.repeat_btn.draw(surf)

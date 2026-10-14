@@ -100,9 +100,25 @@ def _ipts(pts):
     return [(int(round(x)), int(round(y))) for x, y in pts]
 
 
+def _gfxdraw_works():
+    """The browser (pygbag) build of pygame has a gfxdraw that fails on every call."""
+    try:
+        pygame.gfxdraw.filled_circle(pygame.Surface((4, 4)), 2, 2, 1, (255, 255, 255))
+        return True
+    except pygame.error:
+        return False
+
+
+_GFXDRAW = _gfxdraw_works()
+
+
 def poly(surf, pts, color):
     p = _ipts(pts)
     if len(p) < 3:
+        return
+    if not _GFXDRAW:
+        pygame.draw.polygon(surf, color, p)
+        pygame.draw.aalines(surf, color, True, p)
         return
     pygame.gfxdraw.filled_polygon(surf, p, color)
     pygame.gfxdraw.aapolygon(surf, p, color)
@@ -115,6 +131,9 @@ def circle(surf, center, r, color, width=0):
         pygame.draw.aacircle(surf, color, (center[0], center[1]), r, width)
         return
     x, y, r = int(round(center[0])), int(round(center[1])), int(round(r))
+    if not _GFXDRAW:
+        pygame.draw.circle(surf, color, (x, y), r, int(width))
+        return
     if width:
         for i in range(int(width)):
             pygame.gfxdraw.aacircle(surf, x, y, r - i, color)

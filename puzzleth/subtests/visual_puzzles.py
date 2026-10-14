@@ -6,6 +6,7 @@ import pygame
 from ..display import mouse_pos
 from .. import gfx
 from .. import theme as T
+from ..widgets import Button
 from .base import ItemSubtest
 
 KEYS = {getattr(pygame, f"K_{i}"): i - 1 for i in range(1, 7)}
@@ -147,6 +148,8 @@ class VisualPuzzles(ItemSubtest):
     start_item = 5
     discontinue_n = 3
     max_raw = 26
+    challenge = True
+    max_level = 32
     rules = [
         "Choose the three pieces that, put together, make the puzzle.",
         "Pieces may need to be rotated (turned), but never flipped over.",
@@ -160,6 +163,10 @@ class VisualPuzzles(ItemSubtest):
     def time_limit(self, n):
         return None if n == 0 else 30
 
+    def setup(self):
+        self.confirm_btn = Button((T.W // 2 - 120, 648, 240, 48), "Confirm", self._confirm, self.accent,
+                                  hotkeys=(pygame.K_RETURN, pygame.K_KP_ENTER), primary=True, size=17)
+
     def make_item(self, n):
         r = self.rng
         for _ in range(500):
@@ -168,8 +175,10 @@ class VisualPuzzles(ItemSubtest):
                 target = frozenset((x, y) for x in range(w) for y in range(h))
             elif n <= 17:
                 target = grow_shape(r, r.randint(9, 12), 4, 4)
-            else:
+            elif n <= 26:
                 target = grow_shape(r, r.randint(12, 15), 5, 4)
+            else:   # challenge levels: larger, more irregular puzzles
+                target = grow_shape(r, r.randint(15, 18), 5, 5)
             parts = partition(r, target)
             if not parts or min(len(p) for p in parts) < 2:
                 continue
@@ -228,15 +237,20 @@ class VisualPuzzles(ItemSubtest):
         self.submit(1 if ok else 0, "" if ok else f"Correct pieces: {want}")
 
     def handle_item(self, e):
+        if self.confirm_btn.enabled and self.confirm_btn.handle(e):
+            return
         if e.type == pygame.KEYDOWN:
             if e.key in KEYS:
                 self._toggle(KEYS[e.key])
-            elif e.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
-                self._confirm()
         elif e.type == pygame.MOUSEBUTTONDOWN and e.button == 1:
             for i in range(6):
                 if self._opt_rect(i).collidepoint(e.pos):
                     self._toggle(i)
+
+    def update_item(self, dt):
+        self.confirm_btn.enabled = len(self.item["selected"]) == 3
+        self.confirm_btn.label = "Confirm" if self.touch else "Confirm  (Enter)"
+        self.confirm_btn.update(dt)
 
     def on_timeout(self):
         want = ", ".join(str(i + 1) for i in sorted(self.item["correct"]))
@@ -293,6 +307,9 @@ class VisualPuzzles(ItemSubtest):
             self._draw_cells(surf, p, (rect.centerx - pw * u / 2, rect.centery - ph * u / 2), u, PIECE, PIECE_EDGE)
             gfx.text(surf, str(i + 1), (rect.x + 12, rect.y + 8), 14, T.MUTED, bold=True)
         n = len(it["selected"])
-        msg = "Press Enter to confirm" if n == 3 else f"Select {3 - n} more piece{'s' if 3 - n != 1 else ''}"
         if self.state == "item":
-            gfx.text(surf, msg, (T.W // 2, 666), 17, self.accent if n == 3 else T.MUTED, bold=n == 3, anchor="center")
+            if n == 3:
+                self.confirm_btn.draw(surf)
+            else:
+                gfx.text(surf, f"Select {3 - n} more piece{'s' if 3 - n != 1 else ''}", (T.W // 2, 672), 17, T.MUTED,
+                         anchor="center")

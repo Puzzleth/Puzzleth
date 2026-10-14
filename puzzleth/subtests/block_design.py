@@ -4,6 +4,7 @@ import pygame
 from ..display import mouse_pos
 from .. import gfx
 from .. import theme as T
+from ..widgets import Button
 from .base import ItemSubtest
 
 WHITE, RED, TL, TR, BR, BL = range(6)   # TL = red triangle in the top-left half, etc.
@@ -42,6 +43,8 @@ class BlockDesign(ItemSubtest):
     start_item = 5
     discontinue_n = 2
     max_raw = 70
+    challenge = True
+    max_level = 18
     rules = [
         "Recreate the model design using blocks with red, white and half-red/half-white faces.",
         "Items 1–8 use 4 blocks (2×2); items 9–14 use 9 blocks (3×3).",
@@ -50,8 +53,12 @@ class BlockDesign(ItemSubtest):
         "Later models have no guide lines — you must work out where each block's edges are.",
         "Adults start at item 5; reversal rule applies. Discontinue after 2 consecutive scores of 0.",
     ]
-    controls = ["Left-click a block to cycle its face forward, right-click to cycle back",
-                "(the scroll wheel also works). The design is checked automatically.  Space gives up."]
+    controls = ["Click or tap a block to turn it to its next face; right-click or the scroll wheel turns it back.",
+                "The design is checked automatically. Space or the Give up button skips an item."]
+
+    def setup(self):
+        self.giveup_btn = Button((880 - 90, 660, 180, 44), "Give up", lambda: self.submit(0, "Item abandoned."),
+                                 T.MUTED, hotkeys=(pygame.K_SPACE,), size=16)
 
     def item_max(self, n):
         return 2 if n <= 2 else 4 if n <= 8 else 7
@@ -59,7 +66,7 @@ class BlockDesign(ItemSubtest):
     def time_limit(self, n):
         if n == 0:
             return None
-        return 30 if n <= 4 else 60 if n <= 8 else 120
+        return 30 if n <= 4 else 60 if n <= 8 else 120 if n <= 14 else 180
 
     def footer_rule(self):
         return "Stops after 2 consecutive scores of 0"
@@ -67,7 +74,7 @@ class BlockDesign(ItemSubtest):
     # --- generation
     def _gen(self, n):
         for _ in range(200):
-            g = self._gen2(n) if n <= 8 else self._gen3(n)
+            g = self._gen2(n) if n <= 8 else self._gen3(n) if n <= 14 else self._gen4(n)
             flat = [f for row in g for f in row]
             has_diag = any(f in DIAG for f in flat)
             if len(set(flat)) >= 2 and (n <= 2 or has_diag):
@@ -129,6 +136,31 @@ class BlockDesign(ItemSubtest):
             return g
         return [[r.choice(DIAG + (WHITE, RED, TL, BR)) for _ in range(3)] for _ in range(3)]
 
+    def _gen4(self, n):
+        """Challenge levels: 16 blocks (4x4), beyond anything on the real test."""
+        r = self.rng
+        faces = DIAG + DIAG + (WHITE, RED)
+        kind = r.choice(["rot", "mirror"] if n <= 16 else ["rot", "mirror", "free"])
+        if kind == "free":
+            return [[r.choice(faces) for _ in range(4)] for _ in range(4)]
+        q = [[r.choice(faces) for _ in range(2)] for _ in range(2)]
+        g = [[WHITE] * 4 for _ in range(4)]
+        for y in range(2):
+            for x in range(2):
+                f = q[y][x]
+                if kind == "rot":
+                    # four-fold rotational symmetry about the centre (clockwise quarter turns)
+                    pos = (y, x)
+                    for k in range(4):
+                        g[pos[0]][pos[1]] = rot(f, k)
+                        pos = (pos[1], 3 - pos[0])
+                else:
+                    g[y][x] = f
+                    g[y][3 - x] = MIRROR_H.get(f, f)
+                    g[3 - y][x] = MIRROR_V.get(f, f)
+                    g[3 - y][3 - x] = MIRROR_V.get(MIRROR_H.get(f, f), MIRROR_H.get(f, f))
+        return g
+
     def make_item(self, n):
         design = self._gen(n)
         size = len(design)
@@ -143,7 +175,7 @@ class BlockDesign(ItemSubtest):
     # --- interaction
     def _cell_rect(self, y, x):
         size = self.item["size"]
-        bs = 112 if size == 2 else 92
+        bs = {2: 112, 3: 92, 4: 76}[size]
         gap = 8
         total = size * bs + (size - 1) * gap
         ox, oy = 880 - total // 2, 410 - total // 2
@@ -172,8 +204,7 @@ class BlockDesign(ItemSubtest):
             self.submit(pts, expl)
 
     def handle_item(self, e):
-        if e.type == pygame.KEYDOWN and e.key == pygame.K_SPACE:
-            self.submit(0, "Item abandoned.")
+        if self.giveup_btn.handle(e):
             return
         step = 0
         pos = None
@@ -196,6 +227,8 @@ class BlockDesign(ItemSubtest):
 
     def update_item(self, dt):
         self.hover_cell = self._cell_at(mouse_pos())
+        self.giveup_btn.label = "Give up" if self.touch else "Give up  (Space)"
+        self.giveup_btn.update(dt)
 
     # --- drawing
     def draw_item(self, surf):
@@ -204,7 +237,7 @@ class BlockDesign(ItemSubtest):
         # model
         gfx.text(surf, "MODEL", (380, 160), 14, self.accent, bold=True, anchor="center")
         gfx.text(surf, "YOUR BLOCKS", (880, 160), 14, T.MUTED, bold=True, anchor="center")
-        ms = 240 if size == 2 else 252
+        ms = {2: 240, 3: 252, 4: 256}[size]
         mrect = pygame.Rect(0, 0, ms, ms)
         mrect.center = (380, 410)
         frame = mrect.inflate(36, 36)
@@ -229,5 +262,7 @@ class BlockDesign(ItemSubtest):
                 pygame.draw.rect(surf, (6, 8, 18), shadow, border_radius=8)
                 draw_face(surf, r, it["work"][y][x], gap_radius=0)
                 pygame.draw.rect(surf, self.accent if hov else (60, 66, 92), r, 2 if hov else 1)
+        if self.state == "item":
+            self.giveup_btn.draw(surf)
         if self.revealing and self.fb["points"] == 0:
             gfx.text(surf, "The model is on the left — compare edge by edge.", (880, 640), 16, T.MUTED, anchor="center")
