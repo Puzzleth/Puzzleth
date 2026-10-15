@@ -1,7 +1,7 @@
 """Digit Span: Forward, Backward and Sequencing."""
 import pygame
 
-from .. import gfx
+from .. import gfx, sound
 from .. import theme as T
 from ..widgets import DigitEntry, Keypad
 from .base import CONTINUE_KEYS, Subtest
@@ -29,7 +29,7 @@ class DigitSpan(Subtest):
         "A task stops when both trials of the same length are failed.",
         "Each task begins with a sample trial that isn't scored.",
     ]
-    controls = ["Watch the digits, then type your answer and press Enter.",
+    controls = ["Listen to the digits (they are also shown), then type your answer and press Enter.",
                 "Backspace corrects. The answer submits automatically at full length."]
 
     def __init__(self, app, feedback=True, seed=None):
@@ -74,6 +74,7 @@ class DigitSpan(Subtest):
         self.entry.value = ""
         self.state = "present"
         self.pt = -0.8
+        self.spoken = -1
         self.fb = None
 
     def _submit(self):
@@ -87,6 +88,10 @@ class DigitSpan(Subtest):
                 self.task_scores[self.task_i] += 1
                 self.longest[self.task_i] = max(self.longest[self.task_i], self._length())
             self.fb = {"ok": ok, "sample": False}
+        if self.feedback or self.fb["sample"]:
+            sound.play("correct" if ok else "wrong")
+        else:
+            sound.play("submit")   # test conditions: no hint of how it went
         self.state = "feedback"
         self.ft = 0.0
 
@@ -137,9 +142,16 @@ class DigitSpan(Subtest):
         self.keypad.update(dt)
         if self.state == "present":
             self.pt += dt
+            i = int(self.pt // (SHOW + GAP)) if self.pt >= 0 else -1
+            sound.duck(True)
+            if self.spoken < i < len(self.seq):
+                # read out as each digit appears, one per second like the examiner
+                self.spoken = i
+                sound.play(f"digit{self.seq[i]}")
             if self.pt >= len(self.seq) * (SHOW + GAP):
                 self.state = "input"
                 self.auto_t = None
+                sound.duck(False)
         elif self.state == "input" and self.auto_t is not None:
             if len(self.entry.value) < len(self.target):
                 self.auto_t = None

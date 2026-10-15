@@ -26,9 +26,9 @@ class SymbolSearch(SpeedSubtest):
 
     def setup(self):
         self.yes_btn = Button((T.W // 2 - 230, 520, 200, 64), "YES", lambda: self._resp(True), T.GOOD,
-                              hotkeys=(pygame.K_y, pygame.K_LEFT), size=24)
+                              hotkeys=(pygame.K_y, pygame.K_LEFT), size=24, sound=None)
         self.no_btn = Button((T.W // 2 + 30, 520, 200, 64), "NO", lambda: self._resp(False), T.BAD,
-                             hotkeys=(pygame.K_n, pygame.K_RIGHT), size=24)
+                             hotkeys=(pygame.K_n, pygame.K_RIGHT), size=24, sound=None)
 
     def new_item(self, practice=False):
         r = self.rng

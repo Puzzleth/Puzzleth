@@ -2,7 +2,7 @@
 import pygame
 
 from ..display import mouse_pos
-from .. import gfx
+from .. import gfx, sound
 from .. import theme as T
 from ..widgets import Button
 from .base import ItemSubtest
@@ -58,7 +58,7 @@ class BlockDesign(ItemSubtest):
 
     def setup(self):
         self.giveup_btn = Button((880 - 90, 660, 180, 44), "Give up", lambda: self.submit(0, "Item abandoned."),
-                                 T.MUTED, hotkeys=(pygame.K_SPACE,), size=16)
+                                 T.MUTED, hotkeys=(pygame.K_SPACE,), size=16, sound=None)
 
     def item_max(self, n):
         return 2 if n <= 2 else 4 if n <= 8 else 7
@@ -220,6 +220,7 @@ class BlockDesign(ItemSubtest):
                 y, x = c
                 w = self.item["work"]
                 w[y][x] = CYCLE[(CYCLE.index(w[y][x]) + step) % len(CYCLE)]
+                sound.play("key")
                 self._check()
 
     def on_timeout(self):

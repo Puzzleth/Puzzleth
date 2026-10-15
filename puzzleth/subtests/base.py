@@ -11,15 +11,22 @@ ItemSubtest implements the WAIS administration rules:
 With a ``ladder`` (see challenge.py) the WAIS rules are replaced by a fixed-length set of puzzles at
 levels the ladder picks, which may go past ``n_items`` up to ``max_level``.
 """
+import math
 import random
 
 import pygame
 
-from .. import gfx
+from .. import gfx, sound
 from .. import theme as T
 
 CONTINUE_KEYS = (pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_SPACE)
 PAUSE_RECT = pygame.Rect(T.W - 170, T.H - 49, 140, 38)   # the app opens the pause menu on a click here
+
+
+def tick_last_seconds(before, after, last=5):
+    """Tick once for each whole second crossed in the last few seconds of a time limit."""
+    if 0 < after < before and math.ceil(after) < math.ceil(before) and math.ceil(after) <= last:
+        sound.play("tick")
 
 
 class Subtest:
@@ -127,6 +134,7 @@ class ItemSubtest(Subtest):
         self.fb = None
         self.fb_t = 0.0
         self.item_t = 0.0
+        self.timed_out = False
         self.setup()
         if ladder:
             self._begin(ladder.next_level())
@@ -178,6 +186,7 @@ class ItemSubtest(Subtest):
             self.rng = random.Random(seed)
         self.item = self.make_item(n)
         self.item_t = 0.0
+        self.timed_out = False
         self.state = "item"
         self.fb = None
         self.on_item_start()
@@ -193,6 +202,12 @@ class ItemSubtest(Subtest):
             self.scores[self.cur] = points
             self.order.append(self.cur)
         show = self.feedback or self.cur == 0
+        if self.timed_out:
+            sound.play("timeup")
+        elif show:
+            sound.play("correct" if points == mx else "partial" if points > 0 else "wrong")
+        else:
+            sound.play("submit")   # test conditions: no hint of how it went
         self.fb = {"points": points, "max": mx, "explain": explain, "show": show}
         self.state = "feedback"
         self.fb_t = 0.0
@@ -279,9 +294,13 @@ class ItemSubtest(Subtest):
     def update(self, dt):
         super().update(dt)
         if self.state == "item":
-            self.item_t += dt
             lim = self.time_limit(self.cur)
+            before = lim - self.timer_elapsed() if lim else None
+            self.item_t += dt
+            if lim:
+                tick_last_seconds(before, lim - self.timer_elapsed())
             if lim and self.timer_elapsed() >= lim:
+                self.timed_out = True
                 self.on_timeout()
             self.update_item(dt)
         elif self.state == "feedback":
@@ -386,6 +405,7 @@ class SpeedSubtest(Subtest):
 
     def answer(self, ok):
         if self.state == "practice":
+            sound.play("correct" if ok else "wrong")
             self.flash_col = T.GOOD if ok else T.BAD
             self.flash = 1.0
             self.practice_msg = "Correct!" if ok else "Not quite — " + self.explain_wrong()
@@ -399,6 +419,7 @@ class SpeedSubtest(Subtest):
         if self.state != "run":
             return
         self.attempted += 1
+        sound.play("blip")   # the timed part gives no feedback
         if ok:
             self.correct += 1
         else:
@@ -437,9 +458,12 @@ class SpeedSubtest(Subtest):
         super().update(dt)
         self.flash = max(0.0, self.flash - dt * 4)
         if self.state == "run":
+            before = self.remaining
             self.remaining -= dt
+            tick_last_seconds(before, self.remaining)
             if self.remaining <= 0:
                 self.remaining = 0
+                sound.play("timeup")
                 self.end()
 
     def draw(self, surf):

@@ -3,7 +3,7 @@ import asyncio
 
 import pygame
 
-from . import gfx, scoring, web
+from . import gfx, scoring, sound, web
 from . import theme as T
 from .challenge import START_RATING, DailyLadder, RatedLadder
 from .display import Display
@@ -16,8 +16,10 @@ from .subtests.base import PAUSE_RECT, Subtest
 
 class App:
     def __init__(self, screen=None):
+        pygame.mixer.pre_init(44100, -16, 2, 512)   # a small buffer keeps sound effects in time
         pygame.init()
         self.profile = Profile()
+        sound.init(self.profile.settings["sfx_volume"], self.profile.settings["music_volume"])
         self.display = None
         if screen is None and web.IS_WEB:
             # the browser page scales the canvas to fit the screen
@@ -42,6 +44,7 @@ class App:
 
     # ------------------------------------------------------------ flow
     def goto(self, scene):
+        sound.duck(False)
         self.scene = scene
         self.pause = None
         self.fade = 1.0
@@ -142,6 +145,7 @@ class App:
                 e = self.display.map_event(e)
             if e.type == pygame.FINGERDOWN:
                 self.touch = True
+            sound.handle_event(e)
             if e.type == pygame.QUIT:
                 self.running = False
             elif e.type == pygame.KEYDOWN and e.key == pygame.K_F11:
