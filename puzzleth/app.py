@@ -158,6 +158,7 @@ class App:
                 self.pause = PauseOverlay(self)
             else:
                 self.scene.handle_event(e)
+        sound.update(dt)
         self.t += dt
         self.fade = max(0.0, self.fade - dt * 4)
         if self.pause:
