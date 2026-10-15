@@ -252,8 +252,8 @@ class MenuScene(Scene):
             self.about_btn.rect.x = self.quit_btn.rect.right - self.about_btn.rect.w
         if DONATE_URL:
             self.donate_btn = Button(
-                (40, T.H - 58, 110, 36),
-                "Donate",
+                (40, T.H - 58, 170, 36),
+                "Support Development",
                 lambda: web.open_url(DONATE_URL),
                 T.GOLD,
                 size=14,
