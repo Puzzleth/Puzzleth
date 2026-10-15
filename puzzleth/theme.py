@@ -3,8 +3,21 @@ import os
 
 import pygame
 
-W, H = 1280, 800
+W, H = 1280, 800   # the canvas every scene is laid out on; H is COMPACT_H in the compact layout
+FULL_H = 800
+COMPACT_H = 600
 FPS = 60
+
+# Phones in landscape are about twice as wide as tall, so a 1280x800 canvas only fills their height and
+# leaves the sides to the background. The compact layout is a shorter 1280x600 canvas, about the shape
+# of the phone, which the page can show a third larger; scenes arrange themselves to fit it.
+compact = False
+
+
+def set_compact(on):
+    global compact, H
+    compact = on
+    H = COMPACT_H if on else FULL_H
 
 BG = (8, 11, 24)
 BG2 = (22, 28, 58)

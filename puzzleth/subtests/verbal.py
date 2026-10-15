@@ -40,11 +40,18 @@ class ChoiceSubtest(ItemSubtest):
         item = self.generate(n)
         self.rng.shuffle(item["options"])
         self.choice = None
-        w, h, gap = 800, 68, 14
-        y0 = 316
-        self.cards = [OptionCard(((T.W - w) // 2, y0 + i * (h + gap), w, h), str(i + 1), txt, self.accent)
+        self.cards = [OptionCard(self._card_rect(i), str(i + 1), txt, self.accent)
                       for i, (txt, _) in enumerate(item["options"])]
         return item
+
+    @staticmethod
+    def _card_rect(i):
+        if T.compact:   # two by two under the prompt
+            w, h, gap = 590, 112, 16
+            row, col = divmod(i, 2)
+            return pygame.Rect(T.W // 2 - w - gap // 2 + col * (w + gap), 252 + row * (h + gap), w, h)
+        w, h, gap = 800, 68, 14
+        return pygame.Rect((T.W - w) // 2, 316 + i * (h + gap), w, h)
 
     def choose(self, i):
         self.choice = i
@@ -87,6 +94,10 @@ class ChoiceSubtest(ItemSubtest):
 
     def draw_prompt(self, surf):
         pass
+
+    @staticmethod
+    def prompt_y():
+        return 148 if T.compact else 190
 
     def draw_item(self, surf):
         self.draw_prompt(surf)
@@ -135,7 +146,7 @@ class Similarities(ChoiceSubtest):
         return f"A 2-point answer: {best_txt}"
 
     def draw_prompt(self, surf):
-        cy = 190
+        cy = self.prompt_y()
         gfx.glow(surf, (T.W // 2, cy), 300, self.accent, 0.15)
         a = self.item["a"].capitalize()
         b = self.item["b"].capitalize()
@@ -183,7 +194,7 @@ class Vocabulary(ChoiceSubtest):
         return f"Meaning: {best_txt}"
 
     def draw_prompt(self, surf):
-        cy = 190
+        cy = self.prompt_y()
         gfx.glow(surf, (T.W // 2, cy), 300, self.accent, 0.15)
         gfx.text(surf, "What does", (T.W // 2, cy - 54), 20, T.MUTED, anchor="center")
         gfx.text(surf, self.item["word"].upper(), (T.W // 2, cy + 4), 58, T.TEXT, bold=True, anchor="center")
@@ -215,9 +226,10 @@ class Information(ChoiceSubtest):
         return "" if pts else f"Answer: {best_txt}"
 
     def draw_prompt(self, surf):
-        gfx.glow(surf, (T.W // 2, 190), 300, self.accent, 0.12)
-        lines = gfx.wrap(self.item["q"], 36, 900, bold=True)
+        cy = self.prompt_y()
+        gfx.glow(surf, (T.W // 2, cy), 300, self.accent, 0.12)
+        lines = gfx.wrap(self.item["q"], 36, 1000 if T.compact else 900, bold=True)
         lh = T.font(36, True).get_linesize()
-        y0 = 190 - lh * len(lines) / 2
+        y0 = cy - lh * len(lines) / 2
         for i, line in enumerate(lines):
             gfx.text(surf, line, (T.W // 2, y0 + i * lh), 36, T.TEXT, bold=True, anchor="midtop")

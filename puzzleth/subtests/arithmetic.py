@@ -163,10 +163,12 @@ class Arithmetic(ItemSubtest):
                 "Type your answer and press Enter.  R repeats the problem once."]
 
     def setup(self):
-        self.entry = DigitEntry((T.W // 2, 470), accent=self.accent)
-        self.repeat_btn = Button((T.W // 2 - 110, 560, 220, 46), "Repeat", self._repeat, self.accent,
-                                 hotkeys=(pygame.K_r,), size=17)
-        self.keypad = Keypad(660, [str(d) for d in range(10)] + ["Del", "OK"], self.accent, key_w=74)
+        # compact: the problem, then the answer with Repeat beside it, then the keypad
+        self.entry = DigitEntry((T.W // 2, 300 if T.compact else 470), accent=self.accent)
+        repeat = (T.W // 2 + 170, 277, 220, 46) if T.compact else (T.W // 2 - 110, 560, 220, 46)
+        self.repeat_btn = Button(repeat, "Repeat", self._repeat, self.accent, hotkeys=(pygame.K_r,), size=17)
+        self.keypad = Keypad(436 if T.compact else 660, [str(d) for d in range(10)] + ["Del", "OK"], self.accent,
+                             key_w=84 if T.compact else 74, key_h=72 if T.compact else 64)
 
     def time_limit(self, n):
         return 30
@@ -219,8 +221,8 @@ class Arithmetic(ItemSubtest):
             self.repeat_btn.enabled = False
 
     def draw_item(self, surf):
-        rect = pygame.Rect(0, 0, 900, 200)
-        rect.center = (T.W // 2, 270)
+        rect = pygame.Rect(0, 0, 1000, 180) if T.compact else pygame.Rect(0, 0, 900, 200)
+        rect.center = (T.W // 2, 162 if T.compact else 270)
         gfx.panel(surf, rect, T.PANEL, T.BORDER, radius=18)
         if self._visible():
             reading = self.item_t < self.item["read"] and self.state == "item"

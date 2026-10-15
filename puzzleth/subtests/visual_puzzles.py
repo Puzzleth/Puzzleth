@@ -164,7 +164,8 @@ class VisualPuzzles(ItemSubtest):
         return None if n == 0 else 30
 
     def setup(self):
-        self.confirm_btn = Button((T.W // 2 - 120, 648, 240, 48), "Confirm", self._confirm, self.accent,
+        # compact: the puzzle and the Confirm button on the left, the pieces on the right
+        self.confirm_btn = Button((self._puzzle_x() - 120, 436 if T.compact else 648, 240, 48), "Confirm", self._confirm, self.accent,
                                   hotkeys=(pygame.K_RETURN, pygame.K_KP_ENTER), primary=True, size=17,
                                   sound=None)
 
@@ -217,8 +218,15 @@ class VisualPuzzles(ItemSubtest):
         self.u = int(min(40, 132 / ext, 230 / max(tw, th)))
 
     # ---------------------------------------------------------- interaction
+    @staticmethod
+    def _puzzle_x():
+        return 330 if T.compact else T.W // 2
+
     def _opt_rect(self, i):
         w, gap = 164, 16
+        if T.compact:
+            row, col = divmod(i, 3)
+            return pygame.Rect(900 - (3 * w + 2 * gap) // 2 + col * (w + gap), 113 + row * (w + gap), w, w)
         x0 = T.W // 2 - (6 * w + 5 * gap) // 2
         return pygame.Rect(x0 + i * (w + gap), 470, w, 164)
 
@@ -280,7 +288,7 @@ class VisualPuzzles(ItemSubtest):
         u = self.u
         tw, th = extent(it["target"])
         frame = pygame.Rect(0, 0, max(300, tw * u + 80), max(240, th * u + 70))
-        frame.center = (T.W // 2, 270)
+        frame.center = (self._puzzle_x(), 250 if T.compact else 270)
         gfx.glow(surf, frame.center, frame.w * 0.8, self.accent, 0.12)
         gfx.panel(surf, frame, T.PANEL, T.BORDER, radius=18)
         gfx.text(surf, "PUZZLE", (frame.centerx, frame.y - 16), 14, self.accent, bold=True, anchor="center")
@@ -315,5 +323,5 @@ class VisualPuzzles(ItemSubtest):
             if n == 3:
                 self.confirm_btn.draw(surf)
             else:
-                gfx.text(surf, f"Select {3 - n} more piece{'s' if 3 - n != 1 else ''}", (T.W // 2, 672), 17, T.MUTED,
-                         anchor="center")
+                gfx.text(surf, f"Select {3 - n} more piece{'s' if 3 - n != 1 else ''}",
+                         self.confirm_btn.rect.center, 17, T.MUTED, anchor="center")

@@ -187,6 +187,12 @@ class MatrixReasoning(ItemSubtest):
 
     # ---------------------------------------------------------- interaction
     def _opt_rect(self, i):
+        if T.compact:   # right of the matrix, three over two
+            s, gap = 124, 22
+            row, col = divmod(i, 3)
+            n = 3 if row == 0 else 2
+            x0 = 910 - (n * s + (n - 1) * gap) // 2
+            return pygame.Rect(x0 + col * (s + gap), 285 - s - gap // 2 + row * (s + gap), s, s)
         s = 108
         gap = 24
         x0 = T.W // 2 - (5 * s + 4 * gap) // 2
@@ -194,10 +200,11 @@ class MatrixReasoning(ItemSubtest):
 
     def _cell_rect(self, y, x):
         size = self.item["size"]
-        s = 120 if size == 2 else 108
+        s = (128 if size == 2 else 116) if T.compact else (120 if size == 2 else 108)
         gap = 10
         total = size * s + (size - 1) * gap
-        return pygame.Rect(T.W // 2 - total // 2 + x * (s + gap), 318 - total // 2 + y * (s + gap), s, s)
+        cx, cy = (350, 285) if T.compact else (T.W // 2, 318)
+        return pygame.Rect(cx - total // 2 + x * (s + gap), cy - total // 2 + y * (s + gap), s, s)
 
     def choose(self, i):
         self.choice = i
