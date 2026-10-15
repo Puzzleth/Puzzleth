@@ -172,11 +172,14 @@ class SkillTree:
         gfx.arc(surf, pos, FS_RING, 14, math.pi - 0.02, math.pi + 0.02, T.MUTED)
         if has and hide:
             gfx.text(surf, "SCORE", (x, y - 6), 28, col, bold=True, anchor="center")
-            gfx.text(surf, "scores hidden", (x, y + 22), 11, T.MUTED, anchor="center")
+            gfx.text(surf, "scores hidden", (x, y + 22), gfx.fit_width("scores hidden", 11, 2 * FS_R - 24), T.MUTED,
+                     anchor="center")
         elif has:
             val = int(round(40 + (score - 40) * frac))
             gfx.text(surf, str(val), (x, y - 8), 48, T.TEXT, bold=True, anchor="center")
-            gfx.text(surf, "FULL SCALE SCORE", (x, y + 26), 11, col, bold=True, anchor="center")
+            gfx.text(surf, "FULL SCALE SCORE", (x, y + 26), gfx.fit_width("FULL SCALE SCORE", 11, 2 * FS_R - 24, True),
+                     col, bold=True, anchor="center")
         else:
             gfx.text(surf, "SCORE", (x, y - 6), 28, T.DIM, bold=True, anchor="center")
-            gfx.text(surf, "complete all 10", (x, y + 22), 11, T.DIM, anchor="center")
+            gfx.text(surf, "complete all 10", (x, y + 22), gfx.fit_width("complete all 10", 11, 2 * FS_R - 24), T.DIM,
+                     anchor="center")

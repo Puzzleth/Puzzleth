@@ -25,14 +25,15 @@ def _tooltip(surf, pos, title, lines, color):
         for i, line in enumerate(lines)
         for part in gfx.wrap(line, 15, w - 32)
     ]
-    h = 46 + 22 * len(rows)
+    lh = max(22, T.font(15).get_linesize())
+    h = 46 + lh * len(rows)
     x = min(T.W - w - 16, pos[0] + 18)
     y = min(T.H - h - 16, pos[1] + 18)
     rect = pygame.Rect(x, y, w, h)
     gfx.panel(surf, rect, T.PANEL, color, radius=12, alpha=248)
     gfx.text(surf, title, (x + 16, y + 12), 17, color, bold=True)
     for i, (line, col) in enumerate(rows):
-        gfx.text(surf, line, (x + 16, y + 40 + i * 22), 15, col)
+        gfx.text(surf, line, (x + 16, y + 40 + i * lh), 15, col)
 
 
 def tree_tooltip(
@@ -161,8 +162,8 @@ class DisclaimerScene(Scene):
         self.app.to_menu()
 
     def draw(self, surf):
-        p = pygame.Rect(0, 0, 820, 470)
-        p.center = (T.W // 2, 350)
+        p = pygame.Rect(0, 0, 1040, 550) if T.large_text else pygame.Rect(0, 0, 820, 470)
+        p.center = (T.W // 2, 335 if T.large_text else 350)
         gfx.glow(surf, p.center, 520, T.GOLD, 0.08)
         gfx.panel(surf, p, T.PANEL, T.BORDER, radius=20)
         gfx.text(
@@ -184,11 +185,16 @@ class DisclaimerScene(Scene):
             anchor="center",
         )
         y = p.y + 130
+        size = gfx.fit_size(
+            17,
+            lambda k: gfx.block_height(DISCLAIMER, p.w - 120, k, spacing=1.25, gap=16)
+            <= p.bottom - 12 - y,
+        )
         for para in DISCLAIMER:
             gfx.circle(surf, (p.x + 52, y + 11), 3, T.GOLD)
             y += (
                 gfx.text_block(
-                    surf, para, (p.x + 68, y), p.w - 120, 17, T.TEXT, spacing=1.25
+                    surf, para, (p.x + 68, y), p.w - 120, size, T.TEXT, spacing=1.25
                 )
                 + 16
             )
@@ -243,6 +249,10 @@ class MenuScene(Scene):
         self.quit_btn = Button(
             (T.W - 150, T.H - 58, 110, 36), "Quit", app.quit, T.BAD, size=14
         )
+        if T.large_text:   # room for the bigger labels
+            self.begin.rect.update(T.W - 480, 30, 310, 54)
+            self.learn_btn.rect.update(T.W - 480, 94, 210, 44)
+            self.settings_btn.rect.update(T.W - 250, 94, 210, 44)
         self.buttons = [
             self.begin,
             self.daily_btn,
@@ -256,7 +266,7 @@ class MenuScene(Scene):
             self.about_btn.rect.x = self.quit_btn.rect.right - self.about_btn.rect.w
         if DONATE_URL:
             self.donate_btn = Button(
-                (40, T.H - 58, 170, 36),
+                (40, T.H - 58, 190 if T.large_text else 170, 36),
                 "Support Development",
                 lambda: web.open_url(DONATE_URL),
                 T.GOLD,
@@ -311,11 +321,12 @@ class MenuScene(Scene):
             "hide": hide,
         }
         self.tree.draw(surf, data, self.t, None, self.hover)
+        footer = "Not an actual IQ test. Scores are training estimates, not clinical results."
         gfx.text(
             surf,
-            "Not an actual IQ test. Scores are training estimates, not clinical results.",
+            footer,
             (T.W // 2, T.H - 26),
-            14,
+            gfx.fit_width(footer, 14, 560),   # clear of the Digit Span and Coding labels
             T.DIM,
             anchor="center",
         )
@@ -386,6 +397,14 @@ class IntroScene(Scene):
             if ladder_kind == "daily"
             else None
         )
+        # with large text the rules and the how-to-play panels don't fit side by side
+        self.show_rules = False
+        self.rules_btn = Button(
+            (290, T.H - 104, 280, 44), "Rules of the real test", self._toggle_rules, col, size=16
+        )
+        self.large = T.large_text   # fixed for the scene, so the toggle can't go missing
+        if self.large:
+            self.buttons.append(self.rules_btn)
 
     def draw(self, surf):
         cls = self.cls
@@ -426,11 +445,12 @@ class IntroScene(Scene):
                     gfx.circle(surf, (x + 8, 70), 11, cc, 2)
         y0 = 110
         gfx.glow(surf, (220, y0 + 60), 300, col, 0.18 * a)
-        chip = pygame.Rect(50, y0, 230, 28)
+        index_name = T.INDEX_NAMES[cls.index].upper()
+        chip = pygame.Rect(50, y0, max(230, T.font(13, True).size(index_name)[0] + 30), 28)
         gfx.panel(surf, chip, gfx.lerp_color(T.PANEL, col, 0.25), col, radius=14)
         gfx.text(
             surf,
-            T.INDEX_NAMES[cls.index].upper(),
+            index_name,
             chip.center,
             13,
             col,
@@ -440,58 +460,15 @@ class IntroScene(Scene):
         gfx.text(surf, cls.name, (50, y0 + 44), 54, T.TEXT, bold=True)
         gfx.text(surf, cls.measures, (52, y0 + 112), 20, T.MUTED)
 
-        rp = pygame.Rect(50, 290, 700, 360)
-        gfx.panel(surf, rp, T.PANEL, T.BORDER, radius=18)
-        gfx.text(
-            surf, "RULES OF THE REAL TEST", (rp.x + 26, rp.y + 22), 14, col, bold=True
-        )
-        y = rp.y + 56
-        for rule in cls.rules:
-            gfx.circle(surf, (rp.x + 32, y + 11), 3, col)
-            y += (
-                gfx.text_block(
-                    surf, rule, (rp.x + 46, y), rp.w - 76, 17, T.TEXT, spacing=1.25
-                )
-                + 8
-            )
-
-        cp = pygame.Rect(780, 290, 450, 200)
-        gfx.panel(surf, cp, T.PANEL, T.BORDER, radius=18)
-        gfx.text(surf, "HOW TO PLAY HERE", (cp.x + 26, cp.y + 22), 14, col, bold=True)
-        y = cp.y + 56
-        for c in cls.controls:
-            y += (
-                gfx.text_block(
-                    surf, c, (cp.x + 26, y), cp.w - 52, 17, T.TEXT, spacing=1.25
-                )
-                + 8
-            )
-
-        mp = pygame.Rect(780, 506, 450, 144)
-        gfx.panel(surf, mp, T.PANEL, T.BORDER, radius=18)
-        gfx.text(surf, "MODE", (mp.x + 26, mp.y + 22), 14, col, bold=True)
-        if self.ladder_kind == "daily":
-            mode = (
-                "Daily challenge: 10 puzzles from easy to beyond the real test's hardest item, with feedback "
-                "after each. Only your first completed try today counts."
-            )
-            if self.daily_done:
-                mode = (
-                    f"You've already played today ({self.daily_done['solved']}/10). This run is practice "
-                    "and won't change your result."
-                )
-        elif self.battery_pos is not None:
-            mode = (
-                "Test conditions: no feedback, exactly like the real assessment. Your result stays hidden "
-                "until all ten subtests are complete."
-            )
-        elif self.app.profile.settings.get("feedback", True):
-            mode = "Training: after every item you'll see the score it earned and the best answer."
+        if not self.large:
+            self._panel(surf, (50, 290, 700, 360), "RULES OF THE REAL TEST", cls.rules, 17, T.TEXT, col, True)
+            self._panel(surf, (780, 290, 450, 200), "HOW TO PLAY HERE", cls.controls, 17, T.TEXT, col)
+            self._panel(surf, (780, 506, 450, 144), "MODE", [self._mode()], 16, T.MUTED, col, top=30)
+        elif self.show_rules:   # large text: the rules get the whole width, behind a toggle
+            self._panel(surf, (50, 290, 1180, 360), "RULES OF THE REAL TEST", cls.rules, 17, T.TEXT, col, True)
         else:
-            mode = "Test conditions: no feedback after items. Sample items are still explained."
-        gfx.text_block(
-            surf, mode, (mp.x + 26, mp.y + 52), mp.w - 52, 16, T.MUTED, spacing=1.25
-        )
+            self._panel(surf, (50, 290, 700, 360), "HOW TO PLAY HERE", cls.controls, 17, T.TEXT, col)
+            self._panel(surf, (780, 290, 450, 360), "MODE", [self._mode()], 16, T.MUTED, col, top=30)
         if self.rated:
             gfx.text(
                 surf,
@@ -502,6 +479,47 @@ class IntroScene(Scene):
                 anchor="center",
             )
         super().draw(surf)
+
+    @staticmethod
+    def _panel(surf, rect, heading, paras, size, color, col, bullets=False, top=34):
+        p = pygame.Rect(rect)
+        gfx.panel(surf, p, T.PANEL, T.BORDER, radius=18)
+        gfx.text(surf, heading, (p.x + 26, p.y + 22), 14, col, bold=True)
+        x = p.x + (46 if bullets else 26)
+        w = p.w - (76 if bullets else 52)
+        y = p.y + 22 + max(top, T.font(14, True).get_linesize() + 12)
+        size = gfx.fit_size(
+            size,
+            lambda k: gfx.block_height(paras, w, k, spacing=1.25, gap=8) <= p.bottom - 4 - y,
+        )
+        for para in paras:
+            if bullets:
+                gfx.circle(surf, (p.x + 32, y + round(T.text_px(size) * 0.65)), 3, col)
+            y += gfx.text_block(surf, para, (x, y), w, size, color, spacing=1.25) + 8
+
+    def _mode(self):
+        if self.ladder_kind == "daily":
+            if self.daily_done:
+                return (
+                    f"You've already played today ({self.daily_done['solved']}/10). This run is practice "
+                    "and won't change your result."
+                )
+            return (
+                "Daily challenge: 10 puzzles from easy to beyond the real test's hardest item, with feedback "
+                "after each. Only your first completed try today counts."
+            )
+        if self.battery_pos is not None:
+            return (
+                "Test conditions: no feedback, exactly like the real assessment. Your result stays hidden "
+                "until all ten subtests are complete."
+            )
+        if self.app.profile.settings.get("feedback", True):
+            return "Training: after every item you'll see the score it earned and the best answer."
+        return "Test conditions: no feedback after items. Sample items are still explained."
+
+    def _toggle_rules(self):
+        self.show_rules = not self.show_rules
+        self.rules_btn.label = "How to play" if self.show_rules else "Rules of the real test"
 
 
 class SubtestResultScene(Scene):
@@ -667,7 +685,7 @@ class BatteryResultScene(Scene):
         }
         self.tree.draw(surf, data, self.t, self.t, self.hover)
 
-        p = pygame.Rect(T.W - 330, 120, 290, 520)
+        p = pygame.Rect(T.W - 370, 120, 330, 520) if T.large_text else pygame.Rect(T.W - 330, 120, 290, 520)
         a = gfx.ease_out((self.t - 5.0) / 0.8)
         if a > 0 and hide:
             gfx.panel(surf, p, T.PANEL, T.BORDER, radius=18, alpha=int(235 * a))
@@ -724,7 +742,7 @@ class BatteryResultScene(Scene):
             gfx.text(
                 surf,
                 f"≈ {scoring.percentile(self.fsiq):.1f}th percentile",
-                (x, y + 124),
+                (x, y + 96 + max(28, T.font(20, True).get_linesize())),
                 16,
                 T.MUTED,
                 alpha=255 * a,
@@ -733,7 +751,10 @@ class BatteryResultScene(Scene):
             for idx in ("VCI", "PRI", "WMI", "PSI"):
                 v = self.indexes[idx]
                 col = T.INDEX_COLORS[idx]
-                gfx.text(surf, T.INDEX_NAMES[idx], (x, y), 15, T.TEXT, alpha=255 * a)
+                name = T.INDEX_NAMES[idx]
+                gfx.text(
+                    surf, name, (x, y), gfx.fit_width(name, 15, p.w - 108), T.TEXT, alpha=255 * a
+                )
                 gfx.text(
                     surf,
                     str(v),
@@ -744,7 +765,7 @@ class BatteryResultScene(Scene):
                     anchor="topright",
                     alpha=255 * a,
                 )
-                bar = pygame.Rect(x, y + 24, p.w - 48, 6)
+                bar = pygame.Rect(x, y + max(24, T.font(17, True).get_linesize()), p.w - 48, 6)
                 pygame.draw.rect(surf, T.TRACK, bar, border_radius=3)
                 pygame.draw.rect(
                     surf,
@@ -766,13 +787,17 @@ class BatteryResultScene(Scene):
                 bold=True,
                 alpha=255 * a,
             )
+            note = (
+                "Estimates use approximate norms made up for this game. They show trends in "
+                "your training, not a real IQ."
+            )
+            note_y = y + 6 + max(22, T.font(13, True).get_linesize())
             gfx.text_block(
                 surf,
-                "Estimates use approximate norms made up for this game. They show trends in "
-                "your training, not a real IQ.",
-                (x, y + 28),
+                note,
+                (x, note_y),
                 p.w - 48,
-                13,
+                gfx.fit_size(13, lambda k: gfx.block_height([note], p.w - 48, k) <= p.bottom - 12 - note_y),
                 T.MUTED,
                 alpha=255 * a,
             )
@@ -1058,10 +1083,35 @@ class LearnScene(Scene):
             size=16,
         )
         self.buttons = self.nav + [self.prev_btn, self.next_btn, back]
+        self._split = {}
 
     @property
     def pages(self):
-        return TOPICS[self.ti][2]
+        """The topic's pages; large text splits the longer ones over more pages."""
+        key = (self.ti, T.large_text)
+        if key not in self._split:
+            self._split[key] = [
+                part for title, paras in TOPICS[self.ti][2] for part in self._paginate(title, paras)
+            ]
+        return self._split[key]
+
+    def _paginate(self, title, paras):
+        limit = self.panel.bottom - 80
+        if self.layout_page(paras, self.panel) <= limit:
+            return [(title, paras)]
+        # keep each "## " heading with the paragraph after it
+        units = []
+        for para in paras:
+            if units and units[-1][-1].startswith("## "):
+                units[-1].append(para)
+            else:
+                units.append([para])
+        pages = [[]]
+        for unit in units:
+            if pages[-1] and self.layout_page(pages[-1] + unit, self.panel) > limit:
+                pages.append([])
+            pages[-1] += unit
+        return [(title, page) for page in pages]
 
     def _select(self, i):
         self.ti, self.page = i, 0
@@ -1103,6 +1153,7 @@ class LearnScene(Scene):
 
     def update(self, dt):
         super().update(dt)
+        self.page = min(self.page, len(self.pages) - 1)
         for i, b in enumerate(self.nav):
             b.primary = i == self.ti
         last = self.page == len(self.pages) - 1
@@ -1115,27 +1166,28 @@ class LearnScene(Scene):
             self.next_btn.enabled = not (last and self.ti == len(TOPICS) - 1)
 
     @staticmethod
-    def layout_page(paras, p, surf=None):
+    def layout_page(paras, p, surf=None, size=17):
         """Draw (or, without a surface, just measure) a page's paragraphs; returns the bottom y.
         Must stay above ``p.bottom - 80``, where the page buttons are."""
         y = p.y + 84
         w = p.w - 80
-        lh = int(T.font(17).get_linesize() * 1.3)
+        lh = int(T.font(size).get_linesize() * 1.3)
+        head = size - 2
         for para in paras:
             if para.startswith("## "):
                 y += 4
                 if surf:
-                    gfx.text(surf, para[3:], (p.x + 40, y), 15, T.ACCENT, bold=True)
-                y += 24
+                    gfx.text(surf, para[3:], (p.x + 40, y), head, T.ACCENT, bold=True)
+                y += max(24, T.font(head, True).get_linesize() + 2)
             elif surf:
                 y += (
                     gfx.text_block(
-                        surf, para, (p.x + 40, y), w, 17, T.TEXT, spacing=1.3
+                        surf, para, (p.x + 40, y), w, size, T.TEXT, spacing=1.3
                     )
                     + 12
                 )
             else:
-                y += lh * len(gfx.wrap(para, 17, w)) + 12
+                y += lh * len(gfx.wrap(para, size, w)) + 12
         return y
 
     def draw(self, surf):
@@ -1168,7 +1220,10 @@ class LearnScene(Scene):
         gfx.panel(surf, p, T.PANEL, T.BORDER, radius=20)
         title, paras = self.pages[self.page]
         gfx.text(surf, title, (p.x + 40, p.y + 30), 28, T.TEXT, bold=True)
-        self.layout_page(paras, p, surf)
+        size = gfx.fit_size(
+            17, lambda k: self.layout_page(paras, p, size=k) <= p.bottom - 80
+        )
+        self.layout_page(paras, p, surf, size)
         n = len(self.pages)
         if n > 1:
             for i in range(n):
@@ -1185,10 +1240,9 @@ VOLUMES = (0.0, 0.25, 0.5, 0.75, 1.0)
 
 
 class SettingsScene(Scene):
-    ROW = 100
-
     def __init__(self, app):
         super().__init__(app)
+        self.ROW = 114 if T.large_text else 100
         s = app.profile.settings
         n = len(sound.tracks())
         if not sound.available():
@@ -1248,8 +1302,10 @@ class SettingsScene(Scene):
                 ("On", "Off"),
             ),
         ]
+        # large text needs the room of a wider panel
+        w = 1120 if T.large_text else 840
         self.panel = pygame.Rect(
-            T.W // 2 - 420, 118, 840, 16 + len(self.rows) * self.ROW
+            T.W // 2 - w // 2, 96 if T.large_text else 118, w, 16 + len(self.rows) * self.ROW
         )
         self.toggles = []
         for i, row in enumerate(self.rows):
@@ -1264,7 +1320,7 @@ class SettingsScene(Scene):
         self.toggles[2].enabled = self.toggles[3].enabled = sound.available()
         self.toggles[4].enabled = app.display is not None
         back = Button(
-            (T.W // 2 - 110, T.H - 120, 220, 52),
+            (T.W // 2 - 110, max(T.H - 120, self.panel.bottom + 18), 220, 52),
             "Done",
             app.to_menu,
             T.ACCENT,
@@ -1296,6 +1352,14 @@ class SettingsScene(Scene):
         gfx.text(surf, "SETTINGS", (40, 30), 34, T.TEXT, bold=True)
         p = self.panel
         gfx.panel(surf, p, T.PANEL, T.BORDER, radius=20)
+        top = max(30, T.font(20, True).get_linesize())
+        size = gfx.fit_size(
+            15,
+            lambda k: all(
+                gfx.block_height([row[1]], p.w - 300, k, spacing=1.3) <= self.ROW - 26 - top
+                for row in self.rows
+            ),
+        )
         for i, (title, desc, *_rest) in enumerate(self.rows):
             y = p.y + 26 + i * self.ROW
             if i:
@@ -1304,7 +1368,7 @@ class SettingsScene(Scene):
                 )
             gfx.text(surf, title, (p.x + 40, y), 20, T.TEXT, bold=True)
             gfx.text_block(
-                surf, desc, (p.x + 40, y + 30), p.w - 300, 15, T.MUTED, spacing=1.3
+                surf, desc, (p.x + 40, y + top), p.w - 300, size, T.MUTED, spacing=1.3
             )
         super().draw(surf)
 

@@ -53,7 +53,8 @@ class Button:
             gfx.glow(surf, self.rect.center, self.rect.w * 0.45, self.accent, 0.18 * h)
         gfx.panel(surf, self.rect, fill, border, radius=min(14, self.rect.h // 2))
         color = T.TEXT if self.enabled else T.DIM
-        gfx.text(surf, self.label, self.rect.center, self.size, color, bold=True, anchor="center")
+        size = gfx.fit_width(self.label, self.size, self.rect.w - 24, bold=True)
+        gfx.text(surf, self.label, self.rect.center, size, color, bold=True, anchor="center")
 
 
 class OptionCard:
