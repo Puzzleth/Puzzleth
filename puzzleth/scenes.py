@@ -10,6 +10,7 @@ from .challenge import FLOOR, daily_number
 from .content.learn import TOPICS
 from .display import mouse_pos
 from .skilltree import SkillTree
+from .storage import MAX_PLAYERS, NAME_CHARS, NAME_LEN
 from .subtests import BY_CODE, ORDER
 from .widgets import Button
 
@@ -145,7 +146,7 @@ class DisclaimerScene(Scene):
         self.first = not app.profile.settings.get("disclaimer_seen")
         label = "I understand" if self.first else "Back"
         self.ok = Button(
-            (T.W // 2 - 125, 620, 250, 54),
+            (T.W // 2 - 125, T.H - 82 if T.compact else 620, 250, 54),
             label,
             self._ok,
             T.GOLD,
@@ -162,8 +163,15 @@ class DisclaimerScene(Scene):
         self.app.to_menu()
 
     def draw(self, surf):
-        p = pygame.Rect(0, 0, 1040, 550) if T.large_text else pygame.Rect(0, 0, 820, 470)
-        p.center = (T.W // 2, 335 if T.large_text else 350)
+        if T.compact:
+            p = pygame.Rect(0, 0, 1180, T.H - 120)
+            p.midtop = (T.W // 2, 20)
+        elif T.large_text:
+            p = pygame.Rect(0, 0, 1040, 550)
+            p.center = (T.W // 2, 335)
+        else:
+            p = pygame.Rect(0, 0, 820, 470)
+            p.center = (T.W // 2, 350)
         gfx.glow(surf, p.center, 520, T.GOLD, 0.08)
         gfx.panel(surf, p, T.PANEL, T.BORDER, radius=20)
         gfx.text(
@@ -204,7 +212,7 @@ class DisclaimerScene(Scene):
 class MenuScene(Scene):
     def __init__(self, app):
         super().__init__(app)
-        self.tree = SkillTree()
+        self.tree = SkillTree((T.W // 2, 310), layout="compact") if T.compact else SkillTree()
         self.hover = None
         self.begin = Button(
             (T.W - 410, 30, 240, 54),
@@ -249,11 +257,29 @@ class MenuScene(Scene):
         self.quit_btn = Button(
             (T.W - 150, T.H - 58, 110, 36), "Quit", app.quit, T.BAD, size=14
         )
-        if T.large_text:   # room for the bigger labels
+        name = app.profile.current or ""
+        title_w = T.font(34, True).size("PUZZLETH")[0]
+        self.player_btn = Button(
+            (40 + title_w + 28, 32, max(140, T.font(17, True).size(name)[0] + 48), 40),
+            name,
+            app.open_players,
+            T.ACCENT,
+            hotkeys=(pygame.K_p,),
+            size=17,
+        )
+        if T.compact:   # all in one row at the top, the small ones along the bottom
+            self.begin.rect.update(T.W - 830, 12, 310, 48)
+            for i, b in enumerate((self.daily_btn, self.learn_btn, self.settings_btn)):
+                b.rect.update(T.W - 510 + i * 160, 12, 150, 48)
+            for b in (self.about_btn, self.quit_btn):
+                b.rect.y = T.H - 50
+            self.player_btn.rect.y = 14
+        elif T.large_text:   # room for the bigger labels
             self.begin.rect.update(T.W - 480, 30, 310, 54)
             self.learn_btn.rect.update(T.W - 480, 94, 210, 44)
             self.settings_btn.rect.update(T.W - 250, 94, 210, 44)
         self.buttons = [
+            self.player_btn,
             self.begin,
             self.daily_btn,
             self.learn_btn,
@@ -266,7 +292,7 @@ class MenuScene(Scene):
             self.about_btn.rect.x = self.quit_btn.rect.right - self.about_btn.rect.w
         if DONATE_URL:
             self.donate_btn = Button(
-                (40, T.H - 58, 190 if T.large_text else 170, 36),
+                (40, T.H - (50 if T.compact else 58), 190 if T.large_text else 170, 36),
                 "Support Development",
                 lambda: web.open_url(DONATE_URL),
                 T.GOLD,
@@ -305,13 +331,17 @@ class MenuScene(Scene):
         self.hover = self.tree.hit(mouse_pos())
 
     def draw(self, surf):
-        gfx.text(surf, "PUZZLETH", (40, 30), 34, T.TEXT, bold=True)
-        gfx.text(surf, "WAIS-style cognitive training", (42, 74), 17, T.MUTED)
         n = len(self.scaled)
-        line = f"{n} / 10 skills measured  ·  click any node to train it"
+        line = f"{n} / 10 skills measured  ·  {'tap' if self.app.touch else 'click'} any node to train it"
         if self.streak:
             line += f"  ·  daily streak {self.streak}"
-        gfx.text(surf, line, (42, 100), 15, T.DIM)
+        if T.compact:   # the tree needs the room of the subtitle
+            gfx.text(surf, "PUZZLETH", (40, 14), 34, T.TEXT, bold=True)
+            gfx.text(surf, line, (42, 64), gfx.fit_width(line, 15, self.begin.rect.x - 60), T.DIM)
+        else:
+            gfx.text(surf, "PUZZLETH", (40, 30), 34, T.TEXT, bold=True)
+            gfx.text(surf, "WAIS-style cognitive training", (42, 74), 17, T.MUTED)
+            gfx.text(surf, line, (42, 100), 15, T.DIM)
         hide = not self.app.profile.settings.get("show_scores", True)
         data = {
             "scaled": self.scaled,
@@ -325,7 +355,7 @@ class MenuScene(Scene):
         gfx.text(
             surf,
             footer,
-            (T.W // 2, T.H - 26),
+            (T.W // 2, T.H - 22 if T.compact else T.H - 26),
             gfx.fit_width(footer, 14, 560),   # clear of the Digit Span and Coding labels
             T.DIM,
             anchor="center",
@@ -345,6 +375,269 @@ class MenuScene(Scene):
                 hide,
                 self.ratings,
             )
+
+
+class NameEntryScene(Scene):
+    """Arcade-style name entry: type, tap the letter board, or pick each letter with Up/Down and
+    lock it in with Right. Shown before the first game and for each new player."""
+
+    BOARD = [NAME_CHARS[i:i + 10] for i in range(0, 30, 10)] + [list(NAME_CHARS[30:]) + ["Del", "OK"]]
+
+    def __init__(self, app):
+        super().__init__(app)
+        self.first = app.profile.current is None
+        self.value = ""
+        self.pick = None   # index into NAME_CHARS of the letter being picked with Up/Down
+        self.error = None
+        self.flash = {}
+        self.slots_y = 158 if T.compact else 250
+        key_w, key_h, gap = 76, 58, 10
+        top = 250 if T.compact else 360
+        x0 = T.W // 2 - (10 * key_w + 9 * gap) // 2
+        self.keys = []
+        for r, row in enumerate(self.BOARD):
+            x = x0
+            for label in row:
+                w = key_w if len(label) == 1 else 2 * key_w + gap
+                self.keys.append((label, pygame.Rect(x, top + r * (key_h + gap), w, key_h)))
+                x += w + gap
+        if not self.first:
+            rect = (T.W - 260, 14, 220, 52) if T.compact else (T.W // 2 - 110, T.H - 112, 220, 52)
+            self.buttons = [Button(rect, "Cancel", app.open_players, T.MUTED, hotkeys=(pygame.K_ESCAPE,))]
+
+    def _type(self, ch):
+        if len(self.value) < NAME_LEN:
+            self.value += ch
+            sound.play("key")
+        self.pick = None
+        self.error = None
+
+    def _delete(self):
+        if self.pick is not None:
+            self.pick = None
+        elif self.value:
+            self.value = self.value[:-1]
+            sound.play("key")
+        self.error = None
+
+    def _cycle(self, step):
+        if len(self.value) >= NAME_LEN:
+            return
+        if self.pick is None:   # step on from the letter before (from A on an empty name)
+            self.pick = NAME_CHARS.find(self.value[-1]) if self.value else -1 if step > 0 else 0
+        self.pick = (self.pick + step) % len(NAME_CHARS)
+        sound.play("tick")
+        self.error = None
+
+    def _submit(self):
+        if self.pick is not None:
+            self._type(NAME_CHARS[self.pick])
+        self.error = self.app.profile.can_add(self.value)
+        if self.error:
+            sound.play("wrong")
+            return
+        self.app.profile.add_player(self.value)
+        sound.play("submit")
+        self.app.to_menu()
+
+    def handle_event(self, e):
+        if super().handle_event(e):
+            return True
+        if e.type == pygame.MOUSEBUTTONDOWN and e.button == 1:
+            for label, r in self.keys:
+                if r.collidepoint(e.pos):
+                    self.flash[label] = 1.0
+                    if label == "OK":
+                        self._submit()
+                    elif label == "Del":
+                        self._delete()
+                    else:
+                        self._type(label)
+                    return True
+        if e.type != pygame.KEYDOWN:
+            return False
+        if e.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
+            self._submit()
+        elif e.key in (pygame.K_BACKSPACE, pygame.K_LEFT):
+            self._delete()
+        elif e.key == pygame.K_UP:
+            self._cycle(1)
+        elif e.key == pygame.K_DOWN:
+            self._cycle(-1)
+        elif e.key in (pygame.K_RIGHT, pygame.K_SPACE):
+            if self.pick is not None:
+                self._type(NAME_CHARS[self.pick])
+        elif e.unicode and e.unicode.upper() in NAME_CHARS:
+            self._type(e.unicode.upper())
+        else:
+            return False
+        return True
+
+    def update(self, dt):
+        super().update(dt)
+        for k in list(self.flash):
+            self.flash[k] -= dt * 5
+            if self.flash[k] <= 0:
+                del self.flash[k]
+
+    def draw(self, surf):
+        cx = T.W // 2
+        heading_y, sub_y = (40, 84) if T.compact else (90, 146)
+        gfx.text(surf, "ENTER YOUR NAME", (cx, heading_y), 40, T.TEXT, bold=True, anchor="center")
+        if not self.first:
+            sub = "A new player starts with fresh progress and their own settings."
+        elif self.app.profile.data["subtests"] or self.app.profile.data["daily"]:
+            sub = "Your progress so far will be kept under this name."
+        else:
+            sub = "Your progress is saved under this name. Everyone else can add their own."
+        gfx.text(surf, sub, (cx, sub_y), gfx.fit_width(sub, 17, 1100), T.MUTED, anchor="center")
+
+        slot_w, slot_h, gap = 72, 88, 14
+        x0 = cx - (NAME_LEN * slot_w + (NAME_LEN - 1) * gap) // 2
+        for i in range(NAME_LEN):
+            r = pygame.Rect(x0 + i * (slot_w + gap), self.slots_y - slot_h // 2, slot_w, slot_h)
+            filled = i < len(self.value)
+            active = i == len(self.value)
+            border = T.ACCENT if filled or active else T.BORDER
+            if active:
+                gfx.glow(surf, r.center, slot_w, T.ACCENT, 0.18)
+            gfx.panel(surf, r, gfx.lerp_color(T.PANEL, T.ACCENT, 0.12 if filled else 0), border, radius=12,
+                      border_w=2 if active else 1)
+            if filled:
+                gfx.text(surf, self.value[i], r.center, 52, T.TEXT, bold=True, mono=True, anchor="center")
+            elif active and self.pick is not None:
+                gfx.text(surf, NAME_CHARS[self.pick], r.center, 52, T.ACCENT, bold=True, mono=True, anchor="center")
+            elif active and int(self.t * 2) % 2 == 0:
+                pygame.draw.rect(surf, T.ACCENT, (r.centerx - 16, r.bottom - 18, 32, 4), border_radius=2)
+        if self.error:
+            line, col = self.error, T.BAD
+        elif self.app.touch:
+            line, col = "Tap the letters, then OK", T.DIM
+        else:
+            line, col = "Type your name, or pick each letter with Up/Down and lock it in with Right", T.DIM
+        gfx.text(surf, line, (cx, self.slots_y + slot_h // 2 + 26), gfx.fit_width(line, 15, 1000), col,
+                 bold=self.error is not None, anchor="center")
+
+        hover = mouse_pos()
+        for label, r in self.keys:
+            f = self.flash.get(label, 0)
+            ok = label == "OK"
+            h = 0.12 if r.collidepoint(hover) else 0
+            fill = gfx.lerp_color(gfx.lerp_color(T.PANEL, T.ACCENT, (0.25 if ok else 0.06) + h), T.ACCENT, 0.5 * f)
+            gfx.panel(surf, r, fill, T.ACCENT if ok else T.BORDER, radius=12)
+            gfx.text(surf, label, r.center, 26 if len(label) == 1 else 19, T.TEXT, bold=True,
+                     mono=len(label) == 1, anchor="center")
+        super().draw(surf)
+
+
+def _last_played(ts):
+    if not ts:
+        return "Not played yet"
+    days = (datetime.date.today() - datetime.date.fromtimestamp(ts)).days
+    return "Last played today" if days <= 0 else "Last played yesterday" if days == 1 else f"Last played {days} days ago"
+
+
+class PlayersScene(Scene):
+    """Who's playing: pick your name, add a new player, or remove one."""
+
+    def __init__(self, app):
+        super().__init__(app)
+        self.removing = False
+        self.armed = None   # the player a second tap removes
+        p = app.profile
+        self.names = p.players()
+        card_w, card_h, step, top = (560, 82, 96, 102) if T.compact else (560, 96, 112, 140)
+        self.cards = []
+        for i, name in enumerate(self.names):
+            col, row = i % 2, i // 2
+            r = pygame.Rect(T.W // 2 - card_w - 10 + col * (card_w + 20), top + row * step, card_w, card_h)
+            self.cards.append((name, r))
+        y = (T.H - 86) if T.compact else 620
+        self.new_btn = Button((T.W // 2 - 350, y, 220, 52), "New player", app.new_player, T.ACCENT,
+                              hotkeys=(pygame.K_n,), primary=True)
+        self.new_btn.enabled = len(self.names) < MAX_PLAYERS
+        self.remove_btn = Button((T.W // 2 - 110, y, 220, 52), "Remove…", self._toggle_remove, T.BAD)
+        self.remove_btn.enabled = bool(self.names)
+        back = (T.W - 260, 14, 220, 52) if T.compact else (T.W // 2 + 130, y, 220, 52)
+        self.back_btn = Button(back, "Back", app.to_menu, T.ACCENT, hotkeys=(pygame.K_ESCAPE,))
+        self.back_btn.enabled = p.current is not None
+        self.buttons = [self.new_btn, self.remove_btn, self.back_btn]
+
+    def _toggle_remove(self):
+        self.removing = not self.removing
+        self.armed = None
+        self.remove_btn.label = "Done removing" if self.removing else "Remove…"
+        self.remove_btn.primary = self.removing
+
+    def _choose(self, name):
+        if not self.removing:
+            sound.play("select")
+            self.app.profile.switch(name)
+            self.app.to_menu()
+        elif self.armed != name:
+            sound.play("tap")
+            self.armed = name
+        else:
+            sound.play("wrong")
+            self.app.profile.remove_player(name)
+            if self.app.profile.players():
+                self.app.goto(PlayersScene(self.app))
+            else:
+                self.app.to_menu()   # nobody left: enter a new name
+
+    def handle_event(self, e):
+        if super().handle_event(e):
+            return True
+        if e.type == pygame.MOUSEBUTTONDOWN and e.button == 1:
+            for name, r in self.cards:
+                if r.collidepoint(e.pos):
+                    self._choose(name)
+                    return True
+            if self.removing:
+                self.armed = None
+        elif e.type == pygame.KEYDOWN and e.key == pygame.K_RETURN and self.app.profile.current and not self.removing:
+            self.app.to_menu()
+            return True
+        elif e.type == pygame.KEYDOWN and pygame.K_1 <= e.key < pygame.K_1 + len(self.cards):
+            self._choose(self.cards[e.key - pygame.K_1][0])
+            return True
+        return False
+
+    def draw(self, surf):
+        p = self.app.profile
+        gfx.text(surf, "WHO'S PLAYING?", (40, 16 if T.compact else 30), 34, T.TEXT, bold=True)
+        if self.removing:
+            sub, col = "Tap a player twice to remove them and all their progress.", T.BAD
+        else:
+            sub, col = "Choose your name. Each player keeps their own progress and settings.", T.MUTED
+        gfx.text(surf, sub, (42, 60 if T.compact else 76), gfx.fit_width(sub, 17, 800), col)
+        hover = mouse_pos()
+        for i, (name, r) in enumerate(self.cards):
+            accent = T.BAD if self.removing else T.ACCENT
+            current = name == p.current and not self.removing
+            h = r.collidepoint(hover)
+            if current or name == self.armed:
+                gfx.glow(surf, r.center, r.w * 0.4, accent, 0.15)
+            fill = gfx.lerp_color(T.PANEL, accent, 0.22 if name == self.armed else 0.12 if current else 0.06 if h else 0)
+            border = accent if (current or h or name == self.armed) else T.BORDER
+            gfx.panel(surf, r, fill, border, radius=16, border_w=2 if current else 1)
+            if not self.app.touch:
+                gfx.text(surf, str(i + 1), (r.x + 22, r.centery), 15, T.DIM, bold=True, anchor="center")
+            gfx.text(surf, name, (r.x + 44, r.centery), 34, T.TEXT, bold=True, mono=True, anchor="midleft")
+            data = p.player(name)
+            if name == self.armed:
+                lines = ["Tap again to remove", "all of this player's progress"]
+                cols = (T.BAD, T.MUTED)
+            else:
+                measured = sum(1 for e in data["subtests"].values() if e["history"])
+                lines = [f"{measured} / 10 skills measured",
+                         "Playing now" if name == p.current else _last_played(data.get("seen"))]
+                cols = (T.TEXT, T.ACCENT if name == p.current else T.MUTED)
+            lh = T.font(15).get_linesize()
+            for k, (line, c) in enumerate(zip(lines, cols)):
+                gfx.text(surf, line, (r.right - 24, r.centery + (k - 1) * lh + 2), gfx.fit_width(line, 15, 270), c,
+                         anchor="topright")
+        super().draw(surf)
 
 
 class IntroScene(Scene):
@@ -410,12 +703,14 @@ class IntroScene(Scene):
         cls = self.cls
         col = T.INDEX_COLORS[cls.index]
         a = gfx.ease_out(self.t / 0.5)
+        top = 24 if T.compact else 40   # of the mode line above the title
+        dots_y = top + (36 if T.compact else 30)
         if self.ladder_kind == "daily":
             n = daily_number(datetime.date.today())
             gfx.text(
                 surf,
                 f"DAILY CHALLENGE #{n}  ·  SAME PUZZLES FOR EVERYONE TODAY",
-                (50, 40),
+                (50, top),
                 14,
                 T.GOLD,
                 bold=True,
@@ -425,7 +720,7 @@ class IntroScene(Scene):
             gfx.text(
                 surf,
                 f"FULL ASSESSMENT  ·  SUBTEST {i + 1} OF {len(ORDER)}",
-                (50, 40),
+                (50, top),
                 14,
                 T.GOLD,
                 bold=True,
@@ -435,15 +730,20 @@ class IntroScene(Scene):
                 x = 50 + k * 30
                 gfx.circle(
                     surf,
-                    (x + 8, 70),
+                    (x + 8, dots_y),
                     7,
                     cc
                     if k < i
                     else (gfx.lerp_color(T.TRACK, cc, 0.6) if k == i else T.TRACK),
                 )
                 if k == i:
-                    gfx.circle(surf, (x + 8, 70), 11, cc, 2)
-        y0 = 110
+                    gfx.circle(surf, (x + 8, dots_y), 11, cc, 2)
+        if not T.compact:
+            y0 = 110
+        elif self.battery_pos is not None:
+            y0 = top + 62
+        else:
+            y0 = top + (36 if self.ladder_kind == "daily" else 0)
         gfx.glow(surf, (220, y0 + 60), 300, col, 0.18 * a)
         index_name = T.INDEX_NAMES[cls.index].upper()
         chip = pygame.Rect(50, y0, max(230, T.font(13, True).size(index_name)[0] + 30), 28)
@@ -457,18 +757,30 @@ class IntroScene(Scene):
             bold=True,
             anchor="center",
         )
-        gfx.text(surf, cls.name, (50, y0 + 44), 54, T.TEXT, bold=True)
-        gfx.text(surf, cls.measures, (52, y0 + 112), 20, T.MUTED)
+        if T.compact:   # a smaller title, and the panels take what is left above the buttons
+            gfx.text(surf, cls.name, (50, y0 + 36), 44, T.TEXT, bold=True)
+            if self.show_rules:   # the long list of rules needs the room of the line under the title
+                py = y0 + 104
+            else:
+                gfx.text(surf, cls.measures, (52, y0 + 96), 20, T.MUTED)
+                py = y0 + 146
+            ph = T.H - 124 - py
+        else:
+            gfx.text(surf, cls.name, (50, y0 + 44), 54, T.TEXT, bold=True)
+            gfx.text(surf, cls.measures, (52, y0 + 112), 20, T.MUTED)
+            py, ph = 290, 360
 
         if not self.large:
-            self._panel(surf, (50, 290, 700, 360), "RULES OF THE REAL TEST", cls.rules, 17, T.TEXT, col, True)
-            self._panel(surf, (780, 290, 450, 200), "HOW TO PLAY HERE", cls.controls, 17, T.TEXT, col)
-            self._panel(surf, (780, 506, 450, 144), "MODE", [self._mode()], 16, T.MUTED, col, top=30)
+            how_h = ph * 5 // 9
+            self._panel(surf, (50, py, 700, ph), "RULES OF THE REAL TEST", cls.rules, 17, T.TEXT, col, True)
+            self._panel(surf, (780, py, 450, how_h), "HOW TO PLAY HERE", cls.controls, 17, T.TEXT, col)
+            self._panel(surf, (780, py + how_h + 16, 450, ph - how_h - 16), "MODE", [self._mode()], 16, T.MUTED, col,
+                        top=30)
         elif self.show_rules:   # large text: the rules get the whole width, behind a toggle
-            self._panel(surf, (50, 290, 1180, 360), "RULES OF THE REAL TEST", cls.rules, 17, T.TEXT, col, True)
+            self._panel(surf, (50, py, 1180, ph), "RULES OF THE REAL TEST", cls.rules, 17, T.TEXT, col, True)
         else:
-            self._panel(surf, (50, 290, 700, 360), "HOW TO PLAY HERE", cls.controls, 17, T.TEXT, col)
-            self._panel(surf, (780, 290, 450, 360), "MODE", [self._mode()], 16, T.MUTED, col, top=30)
+            self._panel(surf, (50, py, 700, ph), "HOW TO PLAY HERE", cls.controls, 17, T.TEXT, col)
+            self._panel(surf, (780, py, 450, ph), "MODE", [self._mode()], 16, T.MUTED, col, top=30)
         if self.rated:
             gfx.text(
                 surf,
@@ -532,9 +844,11 @@ class SubtestResultScene(Scene):
         self.best_before = best_before
         self.details = details
         col = T.INDEX_COLORS[cls.index]
+        # compact: the score on the left, what it means and the buttons on the right
+        bx, by = (self.INFO_X, 440) if T.compact else (T.W // 2, T.H - 120)
         self.buttons = [
             Button(
-                (T.W // 2 - 260, T.H - 120, 240, 54),
+                (bx - 260, by, 240, 54),
                 "Train again",
                 lambda: app.start_practice(cls),
                 col,
@@ -542,7 +856,7 @@ class SubtestResultScene(Scene):
                 primary=True,
             ),
             Button(
-                (T.W // 2 + 20, T.H - 120, 240, 54),
+                (bx + 20, by, 240, 54),
                 "Skill tree",
                 app.to_menu,
                 T.ACCENT,
@@ -550,15 +864,18 @@ class SubtestResultScene(Scene):
             ),
         ]
 
+    INFO_X = 880   # compact: centre of the column right of the score
+
     def draw(self, surf):
         cls = self.cls
         col = T.INDEX_COLORS[cls.index]
-        c = (T.W // 2, 330)
+        c = (360, 320) if T.compact else (T.W // 2, 330)
+        info = (self.INFO_X, 180) if T.compact else (c[0], c[1] + 190)   # where the words start
         gfx.text(
-            surf, cls.name.upper(), (c[0], 70), 16, col, bold=True, anchor="center"
+            surf, cls.name.upper(), (T.W // 2, 40 if T.compact else 70), 16, col, bold=True, anchor="center"
         )
         if not self.app.profile.settings.get("show_scores", True):
-            self._draw_hidden(surf, c, col)
+            self._draw_hidden(surf, c, col, info)
             super().draw(surf)
             return
         filled = int(gfx.clamp((self.t - 0.4) * 14, 0, self.scaled))
@@ -572,29 +889,35 @@ class SubtestResultScene(Scene):
             surf, "SCALED SCORE", (c[0], c[1] + 48), 13, col, bold=True, anchor="center"
         )
         if self.t > 0.4 + self.scaled / 14:
+            x, y = info
+            dy = (50, 94, 134) if T.compact else (42, 78, 106)   # (large text needs the room)
             label = scoring.scaled_label(self.scaled)
-            gfx.text(
-                surf, label, (c[0], c[1] + 190), 28, T.TEXT, bold=True, anchor="center"
-            )
+            gfx.text(surf, label, (x, y), 28, T.TEXT, bold=True, anchor="center")
             pct = scoring.scaled_percentile(self.scaled)
             line = f"Raw {self.raw} / {cls.max_raw}   ·   ≈ {pct:.0f}th percentile   ·   mean is 10, SD 3"
-            gfx.text(surf, line, (c[0], c[1] + 232), 18, T.MUTED, anchor="center")
+            gfx.text(surf, line, (x, y + dy[0]), 18, T.MUTED, anchor="center")
             if self.scaled > self.best_before > 0:
                 gfx.text(
                     surf,
                     "NEW PERSONAL BEST",
-                    (c[0], c[1] + 268),
+                    (x, y + dy[1]),
                     16,
                     T.GOLD,
                     bold=True,
                     anchor="center",
                 )
-            extra = self._extra()
-            if extra:
-                gfx.text(surf, extra, (c[0], c[1] + 296), 16, T.DIM, anchor="center")
+            self._draw_extra(surf, (x, y + dy[2]))
         super().draw(surf)
 
-    def _draw_hidden(self, surf, c, col):
+    def _draw_extra(self, surf, pos):
+        extra = self._extra()
+        if extra and T.compact:   # the column is narrower than the screen
+            w = 640
+            gfx.text_block(surf, extra, (pos[0] - w // 2, pos[1] - 10), w, 16, T.DIM, align="center")
+        elif extra:
+            gfx.text(surf, extra, pos, 16, T.DIM, anchor="center")
+
+    def _draw_hidden(self, surf, c, col, info):
         a = gfx.ease_out(self.t / 0.8)
         gfx.glow(surf, c, 240, col, 0.2 * a)
         gfx.circle(surf, c, 112, gfx.lerp_color(T.PANEL, col, 0.12))
@@ -609,17 +932,16 @@ class SubtestResultScene(Scene):
             bold=True,
             anchor="center",
         )
+        x, y = info
         gfx.text(
             surf,
             "Scores are hidden. You can show them in Settings.",
-            (c[0], c[1] + 200),
+            (x, y + 10),
             18,
             T.MUTED,
             anchor="center",
         )
-        extra = self._extra()
-        if extra:
-            gfx.text(surf, extra, (c[0], c[1] + 236), 16, T.DIM, anchor="center")
+        self._draw_extra(surf, (x, y + 46))
 
     def _extra(self):
         d = self.details
@@ -641,7 +963,8 @@ class BatteryResultScene(Scene):
     def __init__(self, app, scaled, raw, indexes, fsiq):
         super().__init__(app)
         sound.play("complete")
-        self.tree = SkillTree(center=(475, 460), sx=0.82)
+        # compact: a tree without names, so that it fits beside the panel
+        self.tree = SkillTree((460, 326), layout="narrow") if T.compact else SkillTree(center=(475, 460), sx=0.82)
         self.scaled = scaled
         self.raw = raw
         self.indexes = indexes
@@ -651,7 +974,8 @@ class BatteryResultScene(Scene):
         self.hover = None
         self.buttons = [
             Button(
-                (T.W - 290, T.H - 100, 250, 54),
+                # compact: at the top, so the panel can take the full height
+                (T.W - 290, 14, 250, 50) if T.compact else (T.W - 290, T.H - 100, 250, 54),
                 "Skill tree",
                 app.to_menu,
                 T.GOLD,
@@ -673,8 +997,9 @@ class BatteryResultScene(Scene):
         return super().handle_event(e)
 
     def draw(self, surf):
-        gfx.text(surf, "ASSESSMENT COMPLETE", (40, 30), 30, T.TEXT, bold=True)
-        gfx.text(surf, "Your skill constellation", (42, 70), 17, T.MUTED)
+        top = 18 if T.compact else 30
+        gfx.text(surf, "ASSESSMENT COMPLETE", (40, top), 30, T.TEXT, bold=True)
+        gfx.text(surf, "Your skill constellation", (42, top + 40), 17, T.MUTED)
         hide = not self.app.profile.settings.get("show_scores", True)
         data = {
             "scaled": self.scaled,
@@ -686,6 +1011,9 @@ class BatteryResultScene(Scene):
         self.tree.draw(surf, data, self.t, self.t, self.hover)
 
         p = pygame.Rect(T.W - 370, 120, 330, 520) if T.large_text else pygame.Rect(T.W - 330, 120, 290, 520)
+        if T.compact:
+            p.update(p.x, 76, p.w, T.H - 88)
+        row = 50 if T.compact else 52   # per index
         a = gfx.ease_out((self.t - 5.0) / 0.8)
         if a > 0 and hide:
             gfx.panel(surf, p, T.PANEL, T.BORDER, radius=18, alpha=int(235 * a))
@@ -777,7 +1105,7 @@ class BatteryResultScene(Scene):
                 pygame.draw.line(
                     surf, T.MUTED, (mid, bar.y - 3), (mid, bar.bottom + 2), 1
                 )
-                y += 52
+                y += row
             gfx.text(
                 surf,
                 "NOT AN ACTUAL IQ TEST",
@@ -816,16 +1144,19 @@ class BatteryResultScene(Scene):
                 hide,
             )
         if not self.tree.finished(self.t):
-            gfx.text(surf, "click to skip", (475, 100), 13, T.DIM, anchor="center")
+            skip = "tap to skip" if self.app.touch else "click to skip"
+            gfx.text(surf, skip, (self.tree.center[0], 100), 13, T.DIM, anchor="center")
 
 
 class PauseOverlay:
     def __init__(self, app):
         self.app = app
         cx = T.W // 2
+        self.top = 260 - (T.FULL_H - T.H) // 2   # of the title: centred on any canvas
+        y = self.top + 70
         self.buttons = [
             Button(
-                (cx - 140, 330, 280, 52),
+                (cx - 140, y, 280, 52),
                 "Resume",
                 app.resume,
                 T.ACCENT,
@@ -833,12 +1164,12 @@ class PauseOverlay:
                 primary=True,
             ),
             Button(
-                (cx - 140, 394, 280, 52),
+                (cx - 140, y + 64, 280, 52),
                 "Restart subtest",
                 app.restart_subtest,
                 T.PARTIAL,
             ),
-            Button((cx - 140, 458, 280, 52), "Quit to skill tree", app.to_menu, T.BAD),
+            Button((cx - 140, y + 128, 280, 52), "Quit to skill tree", app.to_menu, T.BAD),
         ]
 
     def handle_event(self, e):
@@ -853,12 +1184,12 @@ class PauseOverlay:
     def draw(self, surf):
         gfx.overlay(surf, T.BG, 200)
         gfx.text(
-            surf, "Paused", (T.W // 2, 260), 44, T.TEXT, bold=True, anchor="center"
+            surf, "Paused", (T.W // 2, self.top), 44, T.TEXT, bold=True, anchor="center"
         )
         gfx.text(
             surf,
             "Timers are stopped (the real test can't be paused!)  ·  F11 toggles fullscreen",
-            (T.W // 2, 300),
+            (T.W // 2, self.top + 40),
             16,
             T.MUTED,
             anchor="center",
@@ -878,8 +1209,10 @@ class LadderResultScene(Scene):
         self.status = ""
         cls = ladder.cls
         col = T.INDEX_COLORS[cls.index]
+        # compact: the result on the left, the details and the buttons on the right
+        bx, by = (self.INFO_X, 430) if T.compact else (T.W // 2, T.H - 110)
         home = Button(
-            (T.W // 2 + 20, T.H - 110, 240, 54),
+            (bx + 20, by, 240, 54),
             "Skill tree",
             app.to_menu,
             T.ACCENT,
@@ -887,7 +1220,7 @@ class LadderResultScene(Scene):
         )
         if ladder.kind == "rated":
             again = Button(
-                (T.W // 2 - 260, T.H - 110, 240, 54),
+                (bx - 260, by, 240, 54),
                 "Another set",
                 lambda: app.begin_subtest(cls, "rated"),
                 col,
@@ -896,7 +1229,7 @@ class LadderResultScene(Scene):
             )
         else:
             again = Button(
-                (T.W // 2 - 260, T.H - 110, 240, 54),
+                (bx - 260, by, 240, 54),
                 "Copy result",
                 self._copy,
                 col,
@@ -924,13 +1257,16 @@ class LadderResultScene(Scene):
             else "Couldn't reach the clipboard."
         )
 
+    INFO_X = 880   # compact: centre of the column right of the result
+
     def draw(self, surf):
         lad = self.ladder
         cls = lad.cls
         col = T.INDEX_COLORS[cls.index]
-        c = (T.W // 2, 290)
+        c = (360, 310) if T.compact else (T.W // 2, 290)
+        info_x, info_y = (self.INFO_X, 150) if T.compact else (c[0], c[1] + 172)   # where the details start
         title = f"{lad.label()}  ·  {cls.name}".upper()
-        gfx.text(surf, title, (c[0], 64), 16, col, bold=True, anchor="center")
+        gfx.text(surf, title, (T.W // 2, 40 if T.compact else 64), 16, col, bold=True, anchor="center")
         a = gfx.ease_out((self.t - 0.2) / 1.2)
         gfx.glow(surf, c, 250, col, 0.2)
         gfx.circle(surf, c, 104, gfx.lerp_color(T.PANEL, col, 0.12))
@@ -963,7 +1299,7 @@ class LadderResultScene(Scene):
                 gfx.text(
                     surf,
                     f"{delta:+d}",
-                    (c[0], c[1] + 172),
+                    (info_x, info_y),
                     30,
                     dcol,
                     bold=True,
@@ -973,7 +1309,7 @@ class LadderResultScene(Scene):
                 info = f"{lad.solved} of {lad.length} solved  ·  {lad.played} puzzles played"
                 if peak:
                     info += f"  ·  peak {peak['peak']:.0f}"
-                gfx.text(surf, info, (c[0], c[1] + 212), 17, T.MUTED, anchor="center")
+                gfx.text(surf, info, (info_x, info_y + 40), 17, T.MUTED, anchor="center")
         else:
             filled = int(gfx.clamp(self.t * 8, 0, lad.solved))
             gfx.pips(surf, c, 132, 14, lad.length, filled, col)
@@ -999,18 +1335,19 @@ class LadderResultScene(Scene):
                     if self.first
                     else ""
                 )
-            gfx.text(surf, info, (c[0], c[1] + 180), 18, T.MUTED, anchor="center")
+            gfx.text(surf, info, (info_x, info_y + 8), 18, T.MUTED, anchor="center")
             if self.status:
                 gfx.text(
-                    surf, self.status, (c[0], c[1] + 212), 16, T.GOOD, anchor="center"
+                    surf, self.status, (info_x, info_y + 40), 16, T.GOOD, anchor="center"
                 )
         # one square per puzzle, with its level underneath
         n = lad.length
-        x0 = c[0] - (n * 46 - 10) / 2
+        x0 = info_x - (n * 46 - 10) / 2
+        sq_y = 250 if T.compact else 548
         for i, (level, solved) in enumerate(lad.results):
             if self.t < 0.3 + i * 0.08:
                 break
-            r = pygame.Rect(x0 + i * 46, 548, 36, 36)
+            r = pygame.Rect(x0 + i * 46, sq_y, 36, 36)
             gfx.panel(
                 surf,
                 r,
@@ -1024,7 +1361,7 @@ class LadderResultScene(Scene):
         gfx.text(
             surf,
             "difficulty level of each puzzle",
-            (c[0], 620),
+            (info_x, sq_y + 72),
             12,
             T.DIM,
             anchor="center",
@@ -1046,7 +1383,7 @@ class LearnScene(Scene):
         if then is None:
             for i, (_, title, _) in enumerate(TOPICS):
                 b = Button(
-                    (40, 150 + i * 58, 250, 46),
+                    (40, 84 + i * 56, 250, 46) if T.compact else (40, 150 + i * 58, 250, 46),
                     title,
                     lambda i=i: self._select(i),
                     T.ACCENT,
@@ -1056,6 +1393,8 @@ class LearnScene(Scene):
         self.panel = pygame.Rect(320, 130, T.W - 360, 560)
         if then:
             self.panel = pygame.Rect(180, 130, T.W - 360, 560)
+        if T.compact:   # under a shorter heading, down to the bottom
+            self.panel.update(self.panel.x, 104 if then else 84, self.panel.w, T.H - (120 if then else 104))
         pr = self.panel
         self.prev_btn = Button(
             (pr.x + 30, pr.bottom - 70, 150, 46),
@@ -1074,8 +1413,12 @@ class LearnScene(Scene):
             primary=True,
             size=16,
         )
+        if T.compact and then:   # top right, clear of the panel
+            back_rect = (T.W - 200, 24, 160, 46)
+        else:
+            back_rect = (40, T.H - (66 if T.compact else 84), 200, 46)
         back = Button(
-            (40, T.H - 84, 200, 46),
+            back_rect,
             "Skip" if then else "Back",
             self._leave,
             T.MUTED,
@@ -1191,11 +1534,12 @@ class LearnScene(Scene):
         return y
 
     def draw(self, surf):
+        top = 16 if T.compact else 30
         if self.then:
             gfx.text(
                 surf,
                 "BEFORE YOUR FIRST FULL ASSESSMENT",
-                (180, 34),
+                (180, top + 4),
                 30,
                 T.TEXT,
                 bold=True,
@@ -1203,16 +1547,18 @@ class LearnScene(Scene):
             gfx.text(
                 surf,
                 "A quick look at what a real session is like. Skip whenever you like.",
-                (182, 76),
+                (182, top + 46),
                 17,
                 T.MUTED,
             )
+        elif T.compact:   # no room for the subtitle
+            gfx.text(surf, "LEARN", (40, top), 34, T.TEXT, bold=True)
         else:
-            gfx.text(surf, "LEARN", (40, 30), 34, T.TEXT, bold=True)
+            gfx.text(surf, "LEARN", (40, top), 34, T.TEXT, bold=True)
             gfx.text(
                 surf,
                 "How the WAIS works, what a session is like, and how to read the scores",
-                (42, 74),
+                (42, top + 44),
                 17,
                 T.MUTED,
             )
@@ -1242,7 +1588,7 @@ VOLUMES = (0.0, 0.25, 0.5, 0.75, 1.0)
 class SettingsScene(Scene):
     def __init__(self, app):
         super().__init__(app)
-        self.ROW = 114 if T.large_text else 100
+        self.ROW = 160 if T.compact else 114 if T.large_text else 100
         s = app.profile.settings
         n = len(sound.tracks())
         if not sound.available():
@@ -1302,15 +1648,22 @@ class SettingsScene(Scene):
                 ("On", "Off"),
             ),
         ]
-        # large text needs the room of a wider panel
-        w = 1120 if T.large_text else 840
-        self.panel = pygame.Rect(
-            T.W // 2 - w // 2, 96 if T.large_text else 118, w, 16 + len(self.rows) * self.ROW
-        )
+        if T.compact:   # two columns, the descriptions under the titles
+            self.panels = [pygame.Rect(40, 84, 590, 16 + 3 * self.ROW), pygame.Rect(650, 84, 590, 16 + 2 * self.ROW)]
+            self.slots = [(0, 0), (0, 1), (0, 2), (1, 0), (1, 1)]   # (panel, row in it) of each setting
+        else:
+            # large text needs the room of a wider panel
+            w = 1120 if T.large_text else 840
+            self.panels = [pygame.Rect(
+                T.W // 2 - w // 2, 96 if T.large_text else 118, w, 16 + len(self.rows) * self.ROW
+            )]
+            self.slots = [(0, i) for i in range(len(self.rows))]
         self.toggles = []
-        for i, row in enumerate(self.rows):
+        for (k, i), row in zip(self.slots, self.rows):
+            p = self.panels[k]
             b = Button(
-                (self.panel.right - 190, self.panel.y + 30 + i * self.ROW, 150, 48),
+                (p.right - 190, p.y + 28 + i * self.ROW, 150, 44) if T.compact else
+                (p.right - 190, p.y + 30 + i * self.ROW, 150, 48),
                 "",
                 row[3],
                 T.ACCENT,
@@ -1319,8 +1672,12 @@ class SettingsScene(Scene):
             self.toggles.append(b)
         self.toggles[2].enabled = self.toggles[3].enabled = sound.available()
         self.toggles[4].enabled = app.display is not None
+        if T.compact:
+            done = (T.W - 260, 14, 220, 52)
+        else:
+            done = (T.W // 2 - 110, max(T.H - 120, self.panels[0].bottom + 18), 220, 52)
         back = Button(
-            (T.W // 2 - 110, max(T.H - 120, self.panel.bottom + 18), 220, 52),
+            done,
             "Done",
             app.to_menu,
             T.ACCENT,
@@ -1349,26 +1706,31 @@ class SettingsScene(Scene):
             b.primary = bool(on)
 
     def draw(self, surf):
-        gfx.text(surf, "SETTINGS", (40, 30), 34, T.TEXT, bold=True)
-        p = self.panel
-        gfx.panel(surf, p, T.PANEL, T.BORDER, radius=20)
+        gfx.text(surf, "SETTINGS", (40, 16 if T.compact else 30), 34, T.TEXT, bold=True)
+        for p in self.panels:
+            gfx.panel(surf, p, T.PANEL, T.BORDER, radius=20)
         top = max(30, T.font(20, True).get_linesize())
+        desc_w = self.panels[0].w - 300
+        if T.compact:   # below the toggle button rather than beside it
+            top = 52
+            desc_w = self.panels[0].w - 70
         size = gfx.fit_size(
             15,
             lambda k: all(
-                gfx.block_height([row[1]], p.w - 300, k, spacing=1.3) <= self.ROW - 26 - top
+                gfx.block_height([row[1]], desc_w, k, spacing=1.3) <= self.ROW - 26 - top
                 for row in self.rows
             ),
         )
-        for i, (title, desc, *_rest) in enumerate(self.rows):
+        for (k, i), (title, desc, *_rest) in zip(self.slots, self.rows):
+            p = self.panels[k]
             y = p.y + 26 + i * self.ROW
             if i:
                 pygame.draw.line(
                     surf, T.BORDER, (p.x + 30, y - 18), (p.right - 30, y - 18), 1
                 )
-            gfx.text(surf, title, (p.x + 40, y), 20, T.TEXT, bold=True)
+            gfx.text(surf, title, (p.x + 40, y), gfx.fit_width(title, 20, p.w - 250, bold=True), T.TEXT, bold=True)
             gfx.text_block(
-                surf, desc, (p.x + 40, y + top), p.w - 300, size, T.MUTED, spacing=1.3
+                surf, desc, (p.x + 40, y + top), desc_w, size, T.MUTED, spacing=1.3
             )
         super().draw(surf)
 

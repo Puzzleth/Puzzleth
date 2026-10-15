@@ -535,6 +535,54 @@ class ProfileTests(unittest.TestCase):
         p.set_rating("MR", 1050, 11)
         self.assertEqual(p.rating("MR"), {"rating": 1050, "played": 11, "peak": 1100})
 
+    def test_first_player_keeps_progress_from_before_names(self):
+        with open(self.path, "w") as f:
+            f.write('{"subtests": {"MR": {"history": [], "best": 9}}, "batteries": [],'
+                    ' "settings": {"feedback": false, "music_volume": 0.25}}')
+        p = Profile()
+        self.assertIsNone(p.current)
+        self.assertTrue(p.add_player("lu ca!"))
+        self.assertEqual(p.current, "LUCA")
+        self.assertEqual(p.best_scaled("MR"), 9)
+        self.assertFalse(p.settings["feedback"])
+        p.add_player("ALEX")                       # a fresh start, with the device's volume
+        self.assertEqual(p.best_scaled("MR"), 0)
+        self.assertTrue(p.settings["feedback"])
+        self.assertEqual(p.settings["music_volume"], 0.25)
+        p.settings["show_scores"] = False
+        p.switch("LUCA")
+        self.assertTrue(p.settings["show_scores"])
+        q = Profile()                              # persisted, with the last player chosen
+        self.assertEqual((q.current, q.players()), ("LUCA", ["LUCA", "ALEX"]))
+        self.assertFalse(q.player("ALEX")["settings"]["show_scores"])
+
+    def test_names_and_removing_players(self):
+        p = Profile()
+        self.assertEqual(p.can_add(""), "Enter at least one letter")
+        p.add_player("SAM")
+        self.assertFalse(p.add_player("sam"))      # names are capitals, so this is SAM again
+        p.add_player("ALEX")
+        p.remove_player("ALEX")                    # the current player: back to whoever played last
+        self.assertEqual((p.current, p.players()), ("SAM", ["SAM"]))
+        p.remove_player("SAM")
+        self.assertIsNone(p.current)
+        self.assertEqual(p.best_scaled("MR"), 0)
+
+    def test_arcade_name_entry(self):
+        from puzzleth.app import App
+        from puzzleth.scenes import MenuScene, NameEntryScene
+        app = App(pygame.display.get_surface())
+        scene = NameEntryScene(app)
+
+        def key(k, ch=""):
+            scene.handle_event(pygame.event.Event(pygame.KEYDOWN, key=k, unicode=ch, mod=0, scancode=0))
+        key(pygame.K_b, "b")
+        for k in (pygame.K_UP, pygame.K_UP, pygame.K_RIGHT, pygame.K_DOWN):   # C, D, locked; then C
+            key(k)
+        key(pygame.K_RETURN)
+        self.assertEqual(app.profile.current, "BDC")
+        self.assertIsInstance(app.scene, MenuScene)
+
 
 class TouchTests(unittest.TestCase):
     def _tap(self, rect):
@@ -649,6 +697,146 @@ class StageTests(unittest.TestCase):
         self.assertEqual(stage.to_canvas((225, 10)), (0, 10))
         e = stage.map_event(pygame.event.Event(pygame.MOUSEBUTTONDOWN, pos=(865, 400), button=1))
         self.assertEqual(e.pos, (640, 400))
+
+
+class CompactLayoutTests(unittest.TestCase):
+    """The 1280x600 layout phones get (see theme.py), drawn with large text as on a phone."""
+
+    def setUp(self):
+        from puzzleth import gfx, theme
+        theme.set_compact(True)
+        gfx.set_large_text(True)
+        self.canvas = pygame.Rect(0, 0, theme.W, theme.H)
+
+    def tearDown(self):
+        from puzzleth import gfx, theme
+        theme.set_compact(False)
+        gfx.set_large_text(False)
+
+    def surface(self):
+        from puzzleth.display import Stage
+        return Stage(pygame.Surface((1300, 600))).canvas
+
+    def assert_inside(self, rects, bottom=None, name=""):
+        """Every rect on the canvas (above ``bottom``) and none overlapping another."""
+        area = self.canvas.copy()
+        if bottom is not None:
+            area.height = bottom
+        for i, r in enumerate(rects):
+            self.assertTrue(area.contains(r), f"{name}: {r} is outside {area}")
+            for other in rects[i + 1:]:
+                self.assertFalse(r.colliderect(other), f"{name}: {r} overlaps {other}")
+
+    def test_stage(self):
+        from puzzleth.display import Stage, stage_size
+        self.assertEqual(stage_size(844, 390), (1298, 600))   # fills a phone with hardly any sides
+        self.assertEqual(stage_size(390, 844), (1280, 2770))
+        self.assertEqual(Stage(pygame.Surface((1298, 600))).canvas.get_size(), (1280, 600))
+
+    def test_layout_follows_the_page(self):
+        from unittest import mock
+        from puzzleth import theme, web
+        from puzzleth.app import App
+        from puzzleth.scenes import MenuScene
+        theme.set_compact(False)
+        app = App(pygame.display.get_surface())
+        app.scene, app.pause = MenuScene(app), None
+        for size, compact in [((844, 390), True), ((390, 844), True), ((740, 340), True),
+                              ((1024, 768), False), ((1366, 1024), False), ((1280, 800), False), ((900, 560), False)]:
+            with mock.patch.object(web, "view_size", return_value=size), mock.patch.object(app, "_fit_page"):
+                app._check_layout()
+            self.assertEqual(theme.compact, compact, size)
+            self.assertEqual(theme.H, 600 if compact else 800)
+        self.assertIsInstance(app.scene, MenuScene)   # rebuilt for the new layout
+
+    def test_layout_waits_for_a_subtest_to_end(self):
+        from unittest import mock
+        from puzzleth import theme, web
+        from puzzleth.app import App
+        app = App(pygame.display.get_surface())
+        app.scene, app.pause = MatrixReasoning(app), None
+        with mock.patch.object(web, "view_size", return_value=(1280, 800)):
+            app._check_layout()
+        self.assertTrue(theme.compact)
+
+    def test_scenes_fit(self):
+        from puzzleth import scenes as S
+        from puzzleth.app import App
+        from puzzleth.subtests import BY_CODE
+        app = App(pygame.display.get_surface())
+        app.touch = True
+        surf = self.surface()
+        sc = {c: 10 for c in BY_CODE}
+        idx, fs = scoring.compute_indexes(sc)
+        lad = challenge.RatedLadder(BY_CODE["MR"], rng=random.Random(1))
+        while lad.next_level() is not None:
+            lad.record(lad.next_level(), True)
+        made = {
+            "menu": S.MenuScene(app), "disclaimer": S.DisclaimerScene(app), "settings": S.SettingsScene(app),
+            "learn": S.LearnScene(app), "walkthrough": S.LearnScene(app, "expect", then=lambda: None),
+            "intro": S.IntroScene(app, BY_CODE["AR"]), "battery intro": S.IntroScene(app, BY_CODE["BD"], battery_pos=4),
+            "result": S.SubtestResultScene(app, BY_CODE["MR"], 14, 12, 10, {"items": 12, "discontinued": True}),
+            "assessment": S.BatteryResultScene(app, sc, sc, idx, fs), "rated": S.LadderResultScene(app, lad),
+        }
+        for name, scene in made.items():
+            scene.t = 10.0
+            scene.draw(surf)
+            self.assert_inside([b.rect for b in scene.buttons], name=name)
+        pause = S.PauseOverlay(app)
+        self.assert_inside([b.rect for b in pause.buttons], name="pause")
+        # the tree's nodes stay clear of the menu's buttons
+        menu = made["menu"]
+        for code, (x, y) in menu.tree.sub_pos.items():
+            node = pygame.Rect(0, 0, 90, 90)
+            node.center = (x, y)
+            for b in menu.buttons:
+                self.assertFalse(node.colliderect(b.rect), (code, b.label))
+
+    def test_learn_pages_fit(self):
+        from puzzleth.app import App
+        from puzzleth.content.learn import TOPICS
+        from puzzleth.scenes import LearnScene
+        for then in (None, lambda: None):
+            scene = LearnScene(App(pygame.display.get_surface()), then=then)
+            self.assertLessEqual(scene.panel.bottom, self.canvas.bottom)
+            for ti in range(len(TOPICS) if then is None else 1):
+                scene._select(ti)
+                for title, paras in scene.pages:
+                    self.assertLessEqual(LearnScene.layout_page(paras, scene.panel), scene.panel.bottom - 80, title)
+
+    def test_subtests_fit(self):
+        from puzzleth.subtests.verbal import Information, Similarities, Vocabulary
+        app = FakeApp()
+        app.touch = True
+        surf = self.surface()
+        above_feedback = self.canvas.bottom - 94   # the feedback bar takes the bottom of the screen
+        for level in (1, 12, 30):
+            mr = MatrixReasoning(app, seed=1)
+            mr._begin(level)
+            size = mr.item["size"]
+            frame = mr._cell_rect(0, 0).union(mr._cell_rect(size - 1, size - 1)).inflate(30, 30)
+            self.assert_inside([frame] + [mr._opt_rect(i) for i in range(5)], above_feedback, "matrix")
+        vp = VisualPuzzles(app, seed=1)
+        self.assert_inside([vp._opt_rect(i) for i in range(6)] + [vp.confirm_btn.rect], above_feedback, "pieces")
+        for level in (6, 12, 16):
+            b = bd.BlockDesign(app, seed=1)
+            b._begin(level)
+            s = b.item["size"]
+            cells = [b._cell_rect(y, x) for y in range(s) for x in range(s)]
+            self.assert_inside(cells + [b.giveup_btn.rect], above_feedback, "blocks")
+        for cls in (Similarities, Vocabulary, Information):
+            sub = cls(app, seed=1)
+            self.assert_inside([c.rect for c in sub.cards], above_feedback, cls.name)
+        ar = arithmetic.Arithmetic(app, seed=1)
+        self.assert_inside(ar.keypad.rects + [ar.repeat_btn.rect], above_feedback, "arithmetic")
+        ds = DigitSpan(app, seed=1)
+        self.assert_inside(ds.keypad.rects, above_feedback, "digit span")
+        ss = SymbolSearch(app, seed=1)
+        self.assert_inside([ss.yes_btn.rect, ss.no_btn.rect], above_feedback, "symbol search")
+        cd = Coding(app, seed=1)
+        self.assert_inside([cd._key_rect(i) for i in range(9)], name="coding")
+        for sub in (mr, vp, b, sub, ar, ds, ss, cd):
+            sub.draw(surf)
 
 
 if __name__ == "__main__":

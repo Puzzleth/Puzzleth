@@ -8,10 +8,10 @@ from . import theme as T
 from .challenge import START_RATING, DailyLadder, RatedLadder
 from .display import Display, Stage, stage_size
 from .scenes import (BatteryResultScene, DisclaimerScene, IntroScene, LadderResultScene, LearnScene, MenuScene,
-                     PauseOverlay, SubtestResultScene)
+                     NameEntryScene, PauseOverlay, PlayersScene, SettingsScene, SubtestResultScene)
 from .storage import Profile
 from .subtests import ORDER
-from .subtests.base import PAUSE_RECT, Subtest
+from .subtests.base import Subtest, pause_rect
 
 
 class App:
@@ -25,6 +25,7 @@ class App:
         elif web.IS_WEB:
             # the browser page scales the stage to fit the page, which has the page's shape
             self.stage = Stage()
+            self._check_layout()
             self._fit_page()
         else:
             # real window: the GPU scales the stage to whatever size the window is
@@ -43,7 +44,12 @@ class App:
         self.portrait = False
         if web.IS_WEB:   # before the first scene lays itself out
             self._check_large_text()
-        self.scene = MenuScene(self) if self.profile.settings.get("disclaimer_seen") else DisclaimerScene(self)
+        if not self.profile.settings.get("disclaimer_seen"):
+            self.scene = DisclaimerScene(self)
+        elif len(self.profile.players()) > 1:   # make sure the right person is playing
+            self.scene = PlayersScene(self)
+        else:
+            self.scene = self._menu()
 
     # ------------------------------------------------------------ flow
     def goto(self, scene):
@@ -52,9 +58,19 @@ class App:
         self.pause = None
         self.fade = 1.0
 
+    def _menu(self):
+        # nothing can be played until the player has entered a name
+        return MenuScene(self) if self.profile.current else NameEntryScene(self)
+
     def to_menu(self):
         self.battery = None
-        self.goto(MenuScene(self))
+        self.goto(self._menu())
+
+    def open_players(self):
+        self.goto(PlayersScene(self))
+
+    def new_player(self):
+        self.goto(NameEntryScene(self))
 
     def quit(self):
         self.running = False
@@ -148,7 +164,7 @@ class App:
 
     def _fit_page(self):
         size = stage_size(*web.view_size())
-        if self.stage.surface is None or self.stage.surface.get_size() != size:
+        if self.stage.surface is None or self.stage.surface.get_size() != size or self.screen.get_height() != T.H:
             self.stage.use(pygame.display.set_mode(size))
             self.stage.activate()
             web.refit_canvas()
@@ -168,7 +184,7 @@ class App:
                 self.pause.handle_event(e)
             elif isinstance(self.scene, Subtest) and (
                     e.type == pygame.KEYDOWN and e.key == pygame.K_ESCAPE or
-                    e.type == pygame.MOUSEBUTTONDOWN and e.button == 1 and PAUSE_RECT.collidepoint(e.pos)):
+                    e.type == pygame.MOUSEBUTTONDOWN and e.button == 1 and pause_rect().collidepoint(e.pos)):
                 self.pause = PauseOverlay(self)
             else:
                 self.scene.handle_event(e)
@@ -206,7 +222,24 @@ class App:
     def _check_large_text():
         # phones show the canvas at about half size: draw the small print larger there. Screens
         # opened from then on make room for it; the open one fits it in as best it can.
-        gfx.set_large_text(web.view_scale(T.W, T.H) < 0.75)
+        gfx.set_large_text(web.view_scale(T.W, T.FULL_H) < 0.75)
+
+    def _check_layout(self):
+        """Use the compact layout (see theme.py) on pages too small for the full one and about the shape
+        of a phone. Which way round the phone is held doesn't matter, so turning it never switches
+        layouts; a page resized past the limit switches once the open screen can simply be rebuilt."""
+        w, h = web.view_size()
+        short, long = min(w, h), max(w, h)
+        want = short < 0.75 * T.FULL_H and long >= 1.7 * short
+        if want == T.compact:
+            return
+        scene = getattr(self, "scene", None)
+        if scene is not None and (self.pause or type(scene) not in (MenuScene, DisclaimerScene, SettingsScene, PlayersScene)):
+            return
+        T.set_compact(want)
+        if scene is not None:
+            self._fit_page()
+            self.scene = type(scene)(self)
 
     async def run_async(self):
         # yielding to the event loop every frame is what lets the game run inside a browser
@@ -217,6 +250,7 @@ class App:
             if web.IS_WEB and frame % 30 == 0:
                 self.portrait = web.is_portrait()
                 self._check_large_text()
+                self._check_layout()
                 self._fit_page()
             frame += 1
             if self.display:

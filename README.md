@@ -49,6 +49,10 @@ python3 main.py
 
 Your progress is saved to `~/.puzzleth/profile.json`.
 
+**Players.** Everyone who plays on the same computer or browser enters a name, arcade style, and
+keeps their own progress, ratings, daily streak and feedback settings. Tap your name beside the
+title (or press P) to switch players, add a new one or remove one.
+
 Everything works with a mouse or touch screen: on-screen keypads, Confirm, Give up and Pause
 buttons appear where a keyboard would otherwise be needed.
 
