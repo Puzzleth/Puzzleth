@@ -4,9 +4,9 @@ import datetime
 
 import pygame
 
-from . import gfx, scoring, sound, web
+from . import gfx, online, scoring, sound, web
 from . import theme as T
-from .challenge import FLOOR, daily_number
+from .challenge import FLOOR, SET_LENGTH, daily_number
 from .content.learn import TOPICS
 from .display import mouse_pos
 from .skilltree import SkillTree
@@ -209,6 +209,19 @@ class DisclaimerScene(Scene):
         super().draw(surf)
 
 
+def _spread(buttons, left, right, y, h, gap=10):
+    """Lay buttons out in a row from ``left`` to ``right``, each as wide as its label needs, so that
+    any shrinking to fit is shared out evenly."""
+    widest = {"Daily": "Daily  10/10"}   # its label grows once today's challenge is played
+    need = [T.font(b.size, True).size(widest.get(b.label, b.label))[0] + 32 for b in buttons]
+    room = right - left - gap * (len(buttons) - 1)
+    x = left
+    for b, n in zip(buttons, need):
+        w = n * room // sum(need)
+        b.rect.update(x, y, w, h)
+        x += w + gap
+
+
 class MenuScene(Scene):
     def __init__(self, app):
         super().__init__(app)
@@ -287,6 +300,15 @@ class MenuScene(Scene):
             self.about_btn,
             self.quit_btn,
         ]
+        if online.enabled():   # Leaderboard goes between Learn and Settings
+            self.board_btn = Button((0, 0, 0, 0), "Leaderboard", app.open_leaderboard, T.GOLD,
+                                    hotkeys=(pygame.K_b,), size=15)
+            self.buttons.insert(4, self.board_btn)
+            if T.compact:
+                row = (self.begin, self.daily_btn, self.learn_btn, self.board_btn, self.settings_btn)
+            else:
+                row = (self.learn_btn, self.board_btn, self.settings_btn)
+            _spread(row, row[0].rect.x, T.W - 40, row[0].rect.y, row[0].rect.h)
         if web.IS_WEB:  # a browser tab is closed, not quit
             self.buttons.remove(self.quit_btn)
             self.about_btn.rect.x = self.quit_btn.rect.right - self.about_btn.rect.w
@@ -573,6 +595,7 @@ class PlayersScene(Scene):
         if not self.removing:
             sound.play("select")
             self.app.profile.switch(name)
+            self.app.player_changed()
             self.app.to_menu()
         elif self.armed != name:
             sound.play("tap")
@@ -580,6 +603,7 @@ class PlayersScene(Scene):
         else:
             sound.play("wrong")
             self.app.profile.remove_player(name)
+            self.app.player_changed()
             if self.app.profile.players():
                 self.app.goto(PlayersScene(self.app))
             else:
@@ -1237,6 +1261,12 @@ class LadderResultScene(Scene):
                 primary=True,
             )
         self.buttons = [again, home]
+        if ladder.kind == "rated" and online.enabled():   # three narrower buttons
+            board = Button((0, 0, 0, 0), "Leaderboard", lambda: app.open_leaderboard(cls.code), T.GOLD,
+                           hotkeys=(pygame.K_b,))
+            self.buttons.insert(1, board)
+            for i, b in enumerate(self.buttons):
+                b.rect.update(bx - 304 + i * 206, by, 196, 54)
         today = ladder.day if ladder.kind == "daily" else datetime.date.today()
         self.streak = app.profile.daily_streak(today)
         self.first = app.profile.daily_result(today) if ladder.kind == "daily" else None
@@ -1309,7 +1339,11 @@ class LadderResultScene(Scene):
                 info = f"{lad.solved} of {lad.length} solved  ·  {lad.played} puzzles played"
                 if peak:
                     info += f"  ·  peak {peak['peak']:.0f}"
-                gfx.text(surf, info, (info_x, info_y + 40), 17, T.MUTED, anchor="center")
+                online_rank = self.app.online.rank(cls.code)
+                if online_rank and online_rank.get("rank"):
+                    info += f"  ·  #{online_rank['rank']} of {online_rank['total']} online"
+                width = 2 * min(info_x, T.W - info_x) - 40
+                gfx.text(surf, info, (info_x, info_y + 40), gfx.fit_width(info, 17, width), T.MUTED, anchor="center")
         else:
             filled = int(gfx.clamp(self.t * 8, 0, lad.solved))
             gfx.pips(surf, c, 132, 14, lad.length, filled, col)
@@ -1367,6 +1401,217 @@ class LadderResultScene(Scene):
             anchor="center",
         )
         super().draw(surf)
+
+
+class LeaderboardScene(Scene):
+    """The online leaderboard: the top puzzle ratings of each subtest with rated sets, where the
+    current player stands, and joining or leaving it."""
+
+    ROWS = 10
+
+    def __init__(self, app, code=None):
+        super().__init__(app)
+        from .challenge import challenge_codes
+        self.codes = challenge_codes()
+        self.code = code if code in self.codes else self.codes[0]
+        self.boards = {}      # code -> the server's answer
+        self.errors = {}      # code -> why it couldn't be fetched
+        self.loading = set()
+        self.armed = False    # a second tap on Leave leaves
+        top = 76 if T.compact else 120
+        tab_w = 230 if T.compact else 200
+        self.tabs = []
+        for i, c in enumerate(self.codes):
+            cls = BY_CODE[c]
+            b = Button((40 + i * (tab_w + 12), top, tab_w, 46), cls.name, lambda c=c: self._show(c),
+                       T.INDEX_COLORS[cls.index], hotkeys=(pygame.K_1 + i,), size=16)
+            self.tabs.append(b)
+        y = top + 62
+        self.table = pygame.Rect(40, y, 780, T.H - y - (16 if T.compact else 40))
+        self.side = pygame.Rect(840, y, T.W - 880, self.table.h)
+        bw = self.side.w - 60
+        self.join_btn = Button((self.side.x + 30, self.side.bottom - 76, bw, 52), "", self._join, T.GOLD,
+                               primary=True, size=18)
+        self.play_btn = Button((self.side.x + 30, self.side.bottom - 140, bw, 52), "Play a rated set",
+                               lambda: app.start_practice(BY_CODE[self.code]), T.GOLD, primary=True, size=17)
+        self.leave_btn = Button((self.side.x + 30, self.side.bottom - 76, bw, 52), "", self._leave, T.BAD, size=16)
+        back = (T.W - 260, 14, 220, 52) if T.compact else (T.W - 260, 30, 220, 52)
+        self.back_btn = Button(back, "Back", app.to_menu, T.ACCENT, hotkeys=(pygame.K_ESCAPE,))
+        self._sync_buttons()
+        self._show(self.code)
+
+    def _show(self, code):
+        self.code = code
+        self.armed = False
+        if code in self.loading:
+            return
+        self.loading.add(code)
+
+        def got(req):
+            self.loading.discard(code)
+            if req.ok and isinstance(req.data, dict):
+                self.boards[code] = req.data
+                self.errors.pop(code, None)
+            else:
+                self.errors[code] = online.describe(req)
+
+        self.app.online.board(code, got, limit=self.ROWS)
+
+    def _refresh(self):
+        self.boards.clear()
+        self._show(self.code)
+
+    def _join(self):
+        self.app.online.join(then=self._refresh)
+
+    def _leave(self):
+        if not self.armed:
+            self.armed = True
+            return
+        sound.play("wrong")
+        self.app.online.leave()
+        self._refresh()
+
+    def handle_event(self, e):
+        if super().handle_event(e):
+            return True
+        if e.type == pygame.KEYDOWN and e.key in (pygame.K_LEFT, pygame.K_RIGHT):
+            i = self.codes.index(self.code) + (1 if e.key == pygame.K_RIGHT else -1)
+            self._show(self.codes[i % len(self.codes)])
+            return True
+        if e.type == pygame.MOUSEBUTTONDOWN and e.button == 1 and not self.leave_btn.rect.collidepoint(e.pos):
+            self.armed = False
+        return False
+
+    def _sync_buttons(self):
+        """Join, or play and leave, depending on whether the player has joined."""
+        on = self.app.online
+        acct = on.account()
+        self.buttons = self.tabs + [self.back_btn]
+        if acct:
+            self.buttons += [self.play_btn, self.leave_btn]
+            self.leave_btn.label = "Tap again to leave" if self.armed else "Leave the leaderboard"
+            self.leave_btn.primary = self.armed
+        elif self.app.profile.current:
+            self.buttons.append(self.join_btn)
+            joining = on.joining is not None
+            self.join_btn.label = "Joining…" if joining else f"Join as {self.app.profile.current}"
+            self.join_btn.enabled = not joining
+        for b in self.tabs:
+            b.primary = b.label == BY_CODE[self.code].name
+
+    def update(self, dt):
+        self._sync_buttons()
+        super().update(dt)
+
+    def draw(self, surf):
+        gfx.text(surf, "LEADERBOARD", (40, 16 if T.compact else 30), 34, T.TEXT, bold=True)
+        if not T.compact:   # the tabs need its room
+            sub = "Puzzle ratings from rated sets, from players everywhere. You're ranked after your first set."
+            gfx.text(surf, sub, (42, 76), gfx.fit_width(sub, 17, 900), T.MUTED)
+        self._draw_table(surf)
+        self._draw_side(surf)
+        super().draw(surf)
+
+    def _draw_table(self, surf):
+        p = self.table
+        cls = BY_CODE[self.code]
+        col = T.INDEX_COLORS[cls.index]
+        gfx.panel(surf, p, T.PANEL, T.BORDER, radius=20)
+        board = self.boards.get(self.code)
+        cols = (p.x + 70, p.x + 100, p.right - 190, p.right - 36)   # rank (right), name, rating (right), puzzles (right)
+        head_y = p.y + 18
+        for label, x, anchor in (("#", cols[0], "topright"), ("PLAYER", cols[1], "topleft"),
+                                 ("RATING", cols[2], "topright"), ("PUZZLES", cols[3], "topright")):
+            gfx.text(surf, label, (x, head_y), 13, T.DIM, bold=True, anchor=anchor)
+        top = head_y + max(28, T.font(13, True).get_linesize() + 8)
+        row_h = (p.bottom - 12 - top) // (self.ROWS + 1)
+        if board is None:
+            msg = self.errors.get(self.code) or "Loading…"
+            gfx.text_block(surf, msg, (p.x + 60, p.centery - 20), p.w - 120, 17,
+                           T.BAD if self.code in self.errors else T.MUTED, align="center")
+            return
+        rows = list(board["top"])
+        me = board.get("me")
+        mine = me["id"] if me else None
+        if me and me.get("rank") and all(r["id"] != mine for r in rows):
+            rows = rows[:self.ROWS] + [None, me]   # None: the gap before you
+        if not rows:
+            msg = "Nobody is ranked yet. Play a rated set to be the first!"
+            gfx.text_block(surf, msg, (p.x + 60, p.centery - 20), p.w - 120, 17, T.MUTED, align="center")
+            return
+        size = gfx.fit_size(17, lambda k: T.font(k, True, True).get_linesize() <= row_h - 4)
+        for i, r in enumerate(rows):
+            y = top + i * row_h
+            if r is None:
+                gfx.text(surf, "···", (p.centerx, y + row_h // 2), 17, T.DIM, anchor="center")
+                continue
+            you = r["id"] == mine
+            row = pygame.Rect(p.x + 14, y + 2, p.w - 28, row_h - 4)
+            if you:
+                gfx.panel(surf, row, gfx.lerp_color(T.PANEL, col, 0.18), col, radius=10)
+            elif i % 2 == 0:
+                gfx.panel(surf, row, gfx.lerp_color(T.PANEL, T.PANEL_HI, 0.5), T.PANEL, radius=10)
+            cy = row.centery
+            rank_col = T.GOLD if r["rank"] == 1 else T.TEXT if r["rank"] <= 3 else T.MUTED
+            gfx.text(surf, str(r["rank"]), (cols[0], cy), size, rank_col, bold=True, anchor="midright")
+            name = gfx.text(surf, r["name"], (cols[1], cy), size, T.TEXT, bold=True, mono=True, anchor="midleft")
+            gfx.text(surf, f"#{r['tag']}", (name.right + 10, cy), max(11, size - 4), T.DIM, mono=True,
+                     anchor="midleft")
+            gfx.text(surf, f"{r['rating']:.0f}", (cols[2], cy), size, col if you else T.TEXT, bold=True,
+                     anchor="midright")
+            gfx.text(surf, str(r["played"]), (cols[3], cy), size, T.MUTED, anchor="midright")
+
+    def _draw_side(self, surf):
+        p = self.side
+        on = self.app.online
+        acct = on.account()
+        cls = BY_CODE[self.code]
+        col = T.INDEX_COLORS[cls.index]
+        gfx.panel(surf, p, T.PANEL, T.BORDER, radius=20)
+        x, y, w = p.x + 30, p.y + 24, p.w - 60
+        name = self.app.profile.current or ""
+        if not acct:
+            gfx.text(surf, "COMPETE ONLINE", (x, y), 14, T.GOLD, bold=True)
+            paras = [f"Put {name}'s puzzle ratings on the leaderboard.",
+                     "Only your name, your ratings and how many puzzles you've played are sent. Leave any "
+                     "time to delete them from the server."]
+            if on.error:
+                paras.append(on.error)
+            bottom = self.join_btn.rect.y - 16
+            top = y + 34
+            size = gfx.fit_size(16, lambda k: gfx.block_height(paras, w, k, spacing=1.3, gap=12) <= bottom - top)
+            for k, para in enumerate(paras):
+                c = T.BAD if on.error and k == len(paras) - 1 else T.TEXT if k == 0 else T.MUTED
+                top += gfx.text_block(surf, para, (x, top), w, size, c, spacing=1.3) + 12
+            return
+        gfx.text(surf, "YOU", (x, y), 14, col, bold=True)
+        n = gfx.text(surf, name, (x, y + 28), gfx.fit_width(name, 30, w - 90, bold=True, mono=True), T.TEXT,
+                     bold=True, mono=True)
+        gfx.text(surf, f"#{acct['tag']}", (n.right + 10, n.centery), 16, T.DIM, mono=True, anchor="midleft")
+        y = n.bottom + 16
+        board = self.boards.get(self.code)
+        me = board.get("me") if board else None
+        local = self.app.profile.rating(self.code)
+        if me and me.get("rank"):
+            big = f"#{me['rank']}"
+            line = f"of {board['total']} ranked in {cls.name}"
+        elif me and me.get("played"):
+            left = max(0, SET_LENGTH - me["played"])
+            big, line = "Unranked", f"{left} more puzzle{'s' if left != 1 else ''} to be ranked"
+        elif local:
+            big, line = "…", "Your rating is on its way"
+        else:
+            big, line = "Unrated", f"Play a {cls.name} rated set to get a rating"
+        r = gfx.text(surf, big, (x, y), 56 if big.startswith("#") else 34, col, bold=True)
+        y = r.bottom + 6
+        bottom = self.play_btn.rect.y - 12
+        lines = [line]
+        if me and me.get("rating") is not None:
+            lines.append(f"Rating {me['rating']:.0f}  ·  peak {me['peak']:.0f}")
+        size = gfx.fit_size(16, lambda k: gfx.block_height(lines, w, k, spacing=1.3, gap=6) <= bottom - y)
+        for k, ln in enumerate(lines):
+            y += gfx.text_block(surf, ln, (x, y), w, size, T.MUTED if k == 0 else T.TEXT, spacing=1.3) + 6
 
 
 class LearnScene(Scene):

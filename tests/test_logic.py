@@ -584,6 +584,225 @@ class ProfileTests(unittest.TestCase):
         self.assertIsInstance(app.scene, MenuScene)
 
 
+class FakeLeaderboard:
+    """A stand-in for the leaderboard server (server/src/index.js) on a local port."""
+
+    def __init__(self):
+        import http.server
+        import json
+        import threading
+        board = self
+        self.players = {}   # token -> name
+        self.joined = 0
+        self.agents = set()
+        self.ratings = {}   # (token, code) -> {"rating", "played"}
+        self.refuse = None  # an HTTP status to answer rating posts with
+        self.log = []
+
+        class Handler(http.server.BaseHTTPRequestHandler):
+            def log_message(self, *args):
+                pass
+
+            def _answer(self, status, data=None):
+                body = json.dumps(data).encode() if data is not None else b""
+                self.send_response(status)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+            def _handle(self):
+                n = int(self.headers.get("Content-Length") or 0)
+                body = json.loads(self.rfile.read(n)) if n else None
+                token = (self.headers.get("Authorization") or "").removeprefix("Bearer ")
+                board.log.append((self.command, self.path))
+                board.agents.add(self.headers.get("User-Agent", ""))
+                if self.command == "POST" and self.path == "/players":
+                    board.joined += 1
+                    tok = f"tok{board.joined}"
+                    board.players[tok] = body["name"]
+                    return self._answer(201, {"id": tok, "name": body["name"], "tag": "AB23", "token": tok})
+                if token not in board.players:
+                    return self._answer(401, {"error": "unknown player"})
+                if self.command == "DELETE":
+                    del board.players[token]
+                    return self._answer(204)
+                code = self.path.split("/")[2][:2]
+                if self.command == "PUT":
+                    if board.refuse:
+                        return self._answer(board.refuse, {"error": "no"})
+                    board.ratings[(token, code)] = body
+                    return self._answer(200, {"rank": 1, "total": 1})
+                me = board.ratings.get((token, code))
+                return self._answer(200, {"code": code, "total": 1, "top": [], "me": me})
+
+            do_GET = do_POST = do_PUT = do_DELETE = _handle
+
+        self.server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        threading.Thread(target=self.server.serve_forever, daemon=True).start()
+        self.url = f"http://127.0.0.1:{self.server.server_port}"
+
+    def close(self):
+        self.server.shutdown()
+        self.server.server_close()
+
+
+class OnlineTests(unittest.TestCase):
+    def setUp(self):
+        os.environ["PUZZLETH_HOME"] = os.path.join(tempfile.mkdtemp(), "profile.json")
+        self.board = FakeLeaderboard()
+        os.environ["PUZZLETH_SERVER"] = self.board.url
+        from puzzleth.online import Online
+        self.profile = Profile()
+        self.profile.add_player("ANA")
+        self.online = Online(self.profile)
+
+    def tearDown(self):
+        os.environ.pop("PUZZLETH_SERVER", None)
+        self.board.close()
+
+    def settle(self):
+        """Wait for every request to be answered."""
+        import time
+        for _ in range(500):
+            self.online.poll()
+            if not self.online.pending:
+                return
+            time.sleep(0.01)
+        self.fail("requests never finished")
+
+    def test_nothing_is_sent_until_a_player_joins(self):
+        self.profile.set_rating("MR", 1100, 10)
+        self.online.push()
+        self.online.flush()
+        self.settle()
+        self.assertEqual(self.board.log, [])
+        self.assertIsNone(self.online.account())
+
+    def test_joining_posts_ratings_once(self):
+        self.profile.set_rating("MR", 1100, 10)
+        self.profile.set_rating("VP", 950, 12)
+        done = []
+        self.online.join(then=lambda: done.append(True))
+        self.settle()
+        self.assertEqual(done, [True])
+        acct = self.online.account()
+        self.assertEqual((acct["tag"], acct["sent"]), ("AB23", {"MR": 10, "VP": 12}))
+        self.assertEqual(self.board.ratings[("tok1", "MR")], {"rating": 1100, "played": 10})
+        self.assertEqual(self.online.rank("MR"), {"rank": 1, "total": 1})
+        n = len(self.board.log)
+        self.online.push()                 # nothing new
+        self.settle()
+        self.assertEqual(len(self.board.log), n)
+        self.profile.set_rating("MR", 1120, 11)
+        self.online.push()
+        self.settle()
+        self.assertEqual(self.board.ratings[("tok1", "MR")]["played"], 11)
+        self.assertEqual(Profile().player("ANA")["online"]["sent"]["MR"], 11)   # saved
+        # Cloudflare refuses Python's default User-Agent with a 403
+        self.assertTrue(all(ua.startswith("Puzzleth") for ua in self.board.agents), self.board.agents)
+
+    def test_refused_and_forgotten_ratings(self):
+        self.online.join()
+        self.settle()
+        self.profile.set_rating("MR", 1100, 10)
+        self.board.refuse = 409            # refused for good: not sent again
+        self.online.push()
+        self.settle()
+        self.assertEqual(self.online.account()["sent"], {"MR": 10})
+        self.profile.set_rating("MR", 1110, 11)
+        self.board.refuse = 401            # the server lost them: they're no longer on it
+        self.online.push()
+        self.settle()
+        self.assertIsNone(self.online.account())
+
+    def test_leaving_and_removing_delete_from_the_server(self):
+        self.online.join()
+        self.settle()
+        self.online.leave()
+        self.assertIsNone(self.online.account())
+        self.settle()
+        self.assertEqual((self.board.players, self.profile.root["forget"]), ({}, []))
+        self.profile.add_player("BO")
+        self.online.join()
+        self.settle()
+        self.profile.remove_player("BO")
+        self.assertEqual(self.profile.root["forget"], ["tok2"])
+        self.online.flush()
+        self.settle()
+        self.assertEqual((self.board.players, Profile().root["forget"]), ({}, []))
+
+    def test_unreachable_server(self):
+        self.board.close()
+        self.profile.set_rating("MR", 1100, 10)
+        self.online.join()
+        self.settle()
+        self.assertIsNone(self.online.account())
+        self.assertIn("Couldn't reach", self.online.error)
+        got = []
+        self.online.board("MR", got.append)
+        self.settle()
+        self.assertEqual(got[0].status, 0)
+
+    def test_an_address_that_isnt_a_web_address(self):
+        from puzzleth import online
+        os.environ["PUZZLETH_SERVER"] = "22961002-afbb-44a9-951f-5d5190bfab3f"   # a D1 database id
+        got = []
+        self.online.board("MR", got.append)
+        self.settle()
+        self.assertEqual(got[0].status, 0)
+        self.assertIn("isn't a web address", online.describe(got[0]))
+        self.assertEqual(self.board.log, [])
+
+    def test_leaderboard_scene(self):
+        from puzzleth import theme
+        from puzzleth.app import App
+        from puzzleth.scenes import LeaderboardScene, MenuScene
+        app = App(pygame.display.get_surface())
+        app.online = self.online
+        app.profile = self.profile
+        rows = [{"rank": i + 1, "id": f"p{i}", "name": f"P{i}", "tag": "XY23", "rating": 1500 - 10 * i,
+                 "played": 40} for i in range(10)]
+        me = {"id": "tok1", "name": "ANA", "tag": "AB23", "rank": 42, "rating": 1100, "played": 30, "peak": 1150}
+        for compact in (False, True):
+            theme.set_compact(compact)
+            try:
+                menu = MenuScene(app)
+                self.assertIn("Leaderboard", [b.label for b in menu.buttons])
+                labels = [b for b in menu.buttons if b.label]
+                for i, b in enumerate(labels):
+                    self.assertTrue(pygame.Rect(0, 0, theme.W, theme.H).contains(b.rect), b.label)
+                    for other in labels[i + 1:]:
+                        self.assertFalse(b.rect.colliderect(other.rect), (b.label, other.label))
+                scene = LeaderboardScene(app, "VP")
+                self.assertEqual(scene.code, "VP")
+                surf = pygame.Surface((theme.W, theme.H))
+                scene.draw(surf)                                      # loading
+                self.settle()
+                scene.update(0.1)
+                self.assertIn(scene.join_btn, scene.buttons)
+                scene.boards["VP"] = {"code": "VP", "total": 50, "top": rows, "me": None}
+                scene.draw(surf)
+                self.online.join()
+                self.settle()
+                scene.update(0.1)
+                self.assertIn(scene.leave_btn, scene.buttons)
+                scene.boards["VP"] = {"code": "VP", "total": 50, "top": rows, "me": me}
+                scene.draw(surf)
+                scene.errors["MR"] = "nope"
+                scene.code = "MR"
+                scene.draw(surf)
+                for b in scene.buttons:
+                    self.assertTrue(pygame.Rect(0, 0, theme.W, theme.H).contains(b.rect), b.label)
+                scene._leave()
+                self.assertIsNotNone(self.online.account())           # the first tap only asks
+                scene._leave()
+                self.assertIsNone(self.online.account())
+                self.settle()
+            finally:
+                theme.set_compact(False)
+
+
 class TouchTests(unittest.TestCase):
     def _tap(self, rect):
         return pygame.event.Event(pygame.MOUSEBUTTONDOWN, button=1, pos=rect.center)

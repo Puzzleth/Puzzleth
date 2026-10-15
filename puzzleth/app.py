@@ -3,12 +3,12 @@ import asyncio
 
 import pygame
 
-from . import gfx, scoring, sound, web
+from . import gfx, online, scoring, sound, web
 from . import theme as T
 from .challenge import START_RATING, DailyLadder, RatedLadder
 from .display import Display, Stage, stage_size
-from .scenes import (BatteryResultScene, DisclaimerScene, IntroScene, LadderResultScene, LearnScene, MenuScene,
-                     NameEntryScene, PauseOverlay, PlayersScene, SettingsScene, SubtestResultScene)
+from .scenes import (BatteryResultScene, DisclaimerScene, IntroScene, LadderResultScene, LeaderboardScene, LearnScene,
+                     MenuScene, NameEntryScene, PauseOverlay, PlayersScene, SettingsScene, SubtestResultScene)
 from .storage import Profile
 from .subtests import ORDER
 from .subtests.base import Subtest, pause_rect
@@ -19,6 +19,9 @@ class App:
         pygame.mixer.pre_init(44100, -16, 2, 512)   # a small buffer keeps sound effects in time
         pygame.init()
         self.profile = Profile()
+        self.online = online.Online(self.profile)
+        self.online.flush()   # players who left the leaderboard while it was out of reach
+        self.online.push()    # ratings earned while it was
         sound.init(self.profile.settings["sfx_volume"], self.profile.settings["music_volume"])
         if screen is not None:
             self.stage = Stage(screen)
@@ -72,6 +75,14 @@ class App:
     def new_player(self):
         self.goto(NameEntryScene(self))
 
+    def open_leaderboard(self, code=None):
+        self.goto(LeaderboardScene(self, code))
+
+    def player_changed(self):
+        """After switching or removing players: catch the leaderboard up."""
+        self.online.flush()
+        self.online.push()
+
     def quit(self):
         self.running = False
 
@@ -124,6 +135,8 @@ class App:
     def ladder_done(self, sub):
         lad = sub.ladder
         counted = lad.kind == "daily" and self.profile.record_daily(lad.day, lad.cls.code, lad.results)
+        if lad.kind == "rated":
+            self.online.push()
         self.goto(LadderResultScene(self, lad, counted))
 
     def toggle_fullscreen(self):
@@ -189,6 +202,7 @@ class App:
             else:
                 self.scene.handle_event(e)
         sound.update(dt)
+        self.online.poll()
         self.t += dt
         self.fade = max(0.0, self.fade - dt * 4)
         if self.pause:

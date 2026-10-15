@@ -1,0 +1,11 @@
+{
+  "name": "puzzleth-leaderboard",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test",
+    "local": "node local/serve.js",
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  }
+}
