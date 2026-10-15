@@ -42,8 +42,20 @@ _FILES = {(False, False): "Inter-Regular.ttf", (True, False): "Inter-Bold.ttf",
           (False, True): "JetBrainsMono-Regular.ttf", (True, True): "JetBrainsMono-Bold.ttf"}
 _fonts = {}
 
+# On a phone the 1280x800 canvas is shown at about half size, which makes the small print unreadable.
+# Large text draws small sizes bigger there (14 -> 20, 20 -> 28) and leaves headings (40+) alone; layouts
+# that measure text through font() adapt by themselves.
+large_text = False
+
+
+def text_px(size):
+    if not large_text or size >= 40:
+        return size
+    return round(size * (1 + 0.4 * min(1.0, (40 - size) / 20)))
+
 
 def font(size, bold=False, mono=False):
+    size = text_px(size)
     key = (size, bold, mono)
     f = _fonts.get(key)
     if f is None:
