@@ -53,6 +53,12 @@ Your progress is saved to `~/.puzzleth/profile.json`.
 keeps their own progress, ratings, daily streak and feedback settings. Tap your name beside the
 title (or press P) to switch players, add a new one or remove one.
 
+**Online leaderboard.** Each player can join the leaderboard from its screen (Leaderboard on the
+menu, or B). Nothing is sent until they do. Then their name and puzzle ratings are posted after
+every rated set, and they're ranked once they've played ten puzzles of a subtest. Players with the
+same name are told apart by a short tag such as `#K3QX`. Leaving the leaderboard, or removing the
+player, deletes their ratings from the server.
+
 Everything works with a mouse or touch screen: on-screen keypads, Confirm, Give up and Pause
 buttons appear where a keyboard would otherwise be needed.
 
@@ -66,7 +72,8 @@ name to `puzzleth/sounds/`; [puzzleth/sounds/README.md](puzzleth/sounds/README.m
 sound and when it plays. On the desktop you can use `~/.puzzleth/music/` and `~/.puzzleth/sounds/`
 instead, leaving the game's own folders untouched.
 
-**Keys:** Enter starts the full assessment, D opens the daily challenge, L opens Learn, F11
+**Keys:** Enter starts the full assessment, D opens the daily challenge, L opens Learn, B opens the
+leaderboard, F11
 toggles fullscreen, and Esc pauses during a subtest. Each subtest's intro screen shows its own
 controls.
 
@@ -78,6 +85,7 @@ controls.
 | **Training** | Click any node in the skill tree to practise one subtest under the real rules, with optional feedback after every item. |
 | **Rated sets** | Ten puzzles matched to your puzzle rating (Matrix Reasoning, Visual Puzzles, Block Design, Arithmetic). Available from each of those subtests' intro screens. |
 | **Daily challenge** | Ten puzzles from one subtest, from easy to beyond the real test. Everyone gets the same puzzles each day, and only your first try counts. |
+| **Leaderboard** | Compare your puzzle ratings with players everywhere, one board per subtest with rated sets. Joining is up to each player. |
 | **Learn** | What to expect in a real session, the ten subtests, the four indexes, how scores work, myths and facts. |
 
 <p>
@@ -147,6 +155,12 @@ game's download, and the fonts are cut down to the characters the game uses.
 The GitHub Actions workflow in `.github/workflows/web.yml` runs the tests, then builds and
 publishes the site to GitHub Pages on every push to `main`. To turn it on, open the repository's
 Settings > Pages and set Source to "GitHub Actions".
+
+**Leaderboard server.** `server/` holds the online leaderboard, a Cloudflare Worker with a D1
+database. [server/README.md](server/README.md) explains how to deploy it (free, a few commands)
+and then point the game at it through `SERVER_URL` in `puzzleth/online.py`. Until that's set,
+the game hides the leaderboard. To try it without Cloudflare, run `npm run local` in `server/`
+and start the game with `PUZZLETH_SERVER=http://localhost:8787 ./puzzle`.
 
 The tests cover the administration rules, the scoring and rating maths, and the generators. For
 the generators, they check thousands of random seeds for a unique matrix answer, exactly one

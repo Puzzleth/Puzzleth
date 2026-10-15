@@ -343,6 +343,29 @@ function puzzleth_open_pending() {
 for (const ev of ["pointerup", "touchend", "keyup"])
     window.addEventListener(ev, puzzleth_open_pending, true)
 
+// Requests to the online leaderboard (puzzleth/online.py). The game polls for each answer every frame
+// with puzzleth_fetch_result, so it never waits on the network.
+var puzzleth_answers = {}
+var puzzleth_last_request = 0
+
+function puzzleth_fetch(method, url, body, token) {
+    const id = ++puzzleth_last_request
+    const headers = {}
+    if (body) headers["Content-Type"] = "application/json"
+    if (token) headers["Authorization"] = "Bearer " + token
+    fetch(url, {method, headers, body: body || undefined, signal: AbortSignal.timeout(15000)})
+        .then(async (r) => { puzzleth_answers[id] = JSON.stringify({status: r.status, body: await r.text()}) })
+        .catch(() => { puzzleth_answers[id] = JSON.stringify({status: 0, body: ""}) })
+    return id
+}
+
+function puzzleth_fetch_result(id) {
+    const answer = puzzleth_answers[id]
+    if (answer === undefined) return ""
+    delete puzzleth_answers[id]
+    return answer
+}
+
 </script>
 
     <title>{{cookiecutter.title}}</title>

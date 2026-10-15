@@ -34,6 +34,24 @@ def copy_text(text):
         return False
 
 
+def fetch(method, url, body, token):
+    """Start a request with the page's fetch() (see puzzleth_fetch in tools/web/puzzleth.tmpl). Returns
+    its id for fetch_result, or None if it couldn't be started."""
+    try:
+        return int(_window().puzzleth_fetch(method, url, body, token))
+    except Exception:
+        return None
+
+
+def fetch_result(request_id):
+    """The answer to a fetch() as JSON text, {"status": 200, "body": "..."} (status 0 if the server
+    couldn't be reached), or "" while it's still on its way."""
+    try:
+        return str(_window().puzzleth_fetch_result(request_id) or "")
+    except Exception:
+        return '{"status": 0, "body": ""}'
+
+
 def open_url(url):
     """Open a link in a new browser tab (see puzzleth_open_url in tools/web/puzzleth.tmpl), or in
     the system browser on the desktop."""

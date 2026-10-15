@@ -32,8 +32,9 @@ def _default_settings():
 
 
 def _default_player():
+    # "online": their place on the online leaderboard, once they join it (see online.py)
     return {"subtests": {}, "batteries": [], "ratings": {}, "daily": {},
-            "settings": {"feedback": True, "show_scores": True}, "seen": 0}
+            "settings": {"feedback": True, "show_scores": True}, "seen": 0, "online": None}
 
 
 def clean_name(name):
@@ -72,7 +73,9 @@ class Profile:
 
     def __init__(self):
         self.path = None if web.IS_WEB else profile_path()
-        self.root = {"current": None, "settings": _default_settings(), "players": {}, "unnamed": _default_player()}
+        # "forget": leaderboard tokens of players who left it, until the server has deleted them
+        self.root = {"current": None, "settings": _default_settings(), "players": {}, "unnamed": _default_player(),
+                     "forget": []}
         try:
             if web.IS_WEB:
                 # browsers: the page's localStorage survives reloads; the virtual file system doesn't
@@ -172,9 +175,13 @@ class Profile:
         self.save()
 
     def remove_player(self, name):
-        """Delete a player and all of their progress; switches to whoever played last if it was the current one."""
-        if self.root["players"].pop(name, None) is None:
+        """Delete a player and all of their progress (and their place on the online leaderboard); switches
+        to whoever played last if it was the current one."""
+        data = self.root["players"].pop(name, None)
+        if data is None:
             return
+        if data.get("online"):
+            self.forget_online(data["online"]["token"])
         if self.root["current"] == name:
             rest = self.players()
             self.root["current"] = None
@@ -183,6 +190,17 @@ class Profile:
             else:
                 self.data = self._player_data()
         self.save()
+
+    def forget_online(self, token):
+        """Remember to delete a leaderboard player from the server (see online.Online.flush)."""
+        if token not in self.root["forget"]:
+            self.root["forget"].append(token)
+        self.save()
+
+    def unforget_online(self, token):
+        if token in self.root["forget"]:
+            self.root["forget"].remove(token)
+            self.save()
 
     def record_subtest(self, code, raw, scaled, details):
         entry = self.data["subtests"].setdefault(code, {"history": [], "best": 0})
