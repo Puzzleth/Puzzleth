@@ -292,6 +292,32 @@ function puzzleth_start_music() {
 for (const ev of ["pointerdown", "touchend", "keydown"])
     window.addEventListener(ev, puzzleth_start_music, true)
 
+// New tabs also need a gesture, and the game only sees a tap a moment after it happens. That is
+// usually soon enough; when the browser (often Safari) refuses, the link opens on the tap's release.
+var puzzleth_pending_url = null
+
+// ("noopener" would make window.open return null even when it works, so the opener is cut here.)
+function puzzleth_new_tab(url) {
+    const tab = window.open(url, "_blank")
+    if (tab)
+        tab.opener = null
+    return tab
+}
+
+function puzzleth_open_url(url) {
+    if (!puzzleth_new_tab(url))
+        puzzleth_pending_url = url
+}
+
+function puzzleth_open_pending() {
+    if (puzzleth_pending_url) {
+        puzzleth_new_tab(puzzleth_pending_url)
+        puzzleth_pending_url = null
+    }
+}
+for (const ev of ["pointerup", "touchend", "keyup"])
+    window.addEventListener(ev, puzzleth_open_pending, true)
+
 </script>
 
     <title>{{cookiecutter.title}}</title>
