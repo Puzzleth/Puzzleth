@@ -155,7 +155,6 @@ License (see `puzzleth/fonts/`). The web page template is adapted from pygbag's 
 effects are synthesized by `tools/make_sounds.py`, and the spoken digits were made with
 [Piper](https://github.com/rhasspy/piper)'s LJSpeech voice, whose recordings are public domain.
 
-**Music.** [“Meditation - Meditation Music”](https://pixabay.com/music/meditationspiritual-meditation-meditation-music-581020/)
-by **andriig** on Pixabay, in `puzzleth/music/`, is used under the
+**Music.** All music is made by [**andrii g.**](https://pixabay.com/users/andriig-54059306/) on Pixabay, in `puzzleth/music/`, is used under the
 [Pixabay Content License](https://pixabay.com/service/license-summary/). It isn't covered by this
 project's MIT license.

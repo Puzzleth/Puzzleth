@@ -19,16 +19,20 @@ DONATE_URL = "https://ko-fi.com/n0va"
 
 def _tooltip(surf, pos, title, lines, color):
     w = 330
-    h = 46 + 22 * len(lines)
+    # Wrap each line to the box width, keeping the first line's highlight colour.
+    rows = [
+        (part, T.TEXT if i == 0 else T.MUTED)
+        for i, line in enumerate(lines)
+        for part in gfx.wrap(line, 15, w - 32)
+    ]
+    h = 46 + 22 * len(rows)
     x = min(T.W - w - 16, pos[0] + 18)
     y = min(T.H - h - 16, pos[1] + 18)
     rect = pygame.Rect(x, y, w, h)
     gfx.panel(surf, rect, T.PANEL, color, radius=12, alpha=248)
     gfx.text(surf, title, (x + 16, y + 12), 17, color, bold=True)
-    for i, line in enumerate(lines):
-        gfx.text(
-            surf, line, (x + 16, y + 40 + i * 22), 15, T.TEXT if i == 0 else T.MUTED
-        )
+    for i, (line, col) in enumerate(rows):
+        gfx.text(surf, line, (x + 16, y + 40 + i * 22), 15, col)
 
 
 def tree_tooltip(
