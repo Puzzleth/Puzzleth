@@ -34,6 +34,19 @@ def copy_text(text):
         return False
 
 
+def open_url(url):
+    """Open a link in a new browser tab (see puzzleth_open_url in tools/web/puzzleth.tmpl), or in
+    the system browser on the desktop."""
+    if IS_WEB:
+        try:
+            _window().puzzleth_open_url(url)
+        except Exception:
+            pass
+    else:
+        import webbrowser
+        webbrowser.open(url)
+
+
 def is_portrait():
     try:
         w = _window()
