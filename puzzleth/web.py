@@ -55,6 +55,33 @@ def is_portrait():
         return False
 
 
+def view_size():
+    """The page's size in CSS pixels."""
+    try:
+        w = _window()
+        return int(w.innerWidth), int(w.innerHeight)
+    except Exception:
+        return 1280, 800
+
+
+def refit_canvas():
+    """Have the page scale the game canvas again after it changed shape (pygbag only does it when
+    the page is resized, which it is just before the game reshapes the canvas to match)."""
+    try:
+        _window().window_resize()
+    except Exception:
+        pass
+
+
+def view_scale(canvas_w, canvas_h):
+    """How large the page shows the game canvas (1.0 = one canvas pixel per CSS pixel)."""
+    try:
+        w = _window()
+        return min(w.innerWidth / canvas_w, w.innerHeight / canvas_h)
+    except Exception:
+        return 1.0
+
+
 # pygbag replaces pygame.mixer.music with an HTML <audio> element per track. These call helpers in
 # tools/web/puzzleth.tmpl, which start the music on the first tap (browsers allow no sooner).
 def _music_track():
@@ -84,3 +111,25 @@ def music_ended():
         return bool(_window().puzzleth_music_ended())
     except Exception:
         return False
+
+
+def stream_music(url):
+    """Play a song served beside the page (see tools/build_web.sh), downloading only that one."""
+    try:
+        _window().puzzleth_stream_music(url)
+    except Exception:
+        pass
+
+
+def stop_music():
+    try:
+        _window().puzzleth_stop_music()
+    except Exception:
+        pass
+
+
+def music_volume(v):
+    try:
+        _window().puzzleth_music_volume(v)
+    except Exception:
+        pass

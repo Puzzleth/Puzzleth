@@ -595,6 +595,61 @@ class LearnTests(unittest.TestCase):
             for title, paras in pages:
                 self.assertLessEqual(LearnScene.layout_page(paras, panel), panel.bottom - 80, title)
 
+    def test_large_text_splits_long_pages(self):
+        from puzzleth import gfx
+        from puzzleth.app import App
+        from puzzleth.content.learn import TOPICS
+        from puzzleth.scenes import LearnScene
+        gfx.set_large_text(True)
+        try:
+            scene = LearnScene(App(pygame.display.get_surface()))
+            p = scene.panel
+            for ti, (_, _, pages) in enumerate(TOPICS):
+                scene._select(ti)
+                self.assertGreaterEqual(len(scene.pages), len(pages))
+                originals = [para for _, paras in pages for para in paras]
+                self.assertEqual([para for _, paras in scene.pages for para in paras], originals)
+                for title, paras in scene.pages:
+                    self.assertLessEqual(LearnScene.layout_page(paras, p), p.bottom - 80, title)
+        finally:
+            gfx.set_large_text(False)
+
+
+class LargeTextTests(unittest.TestCase):
+    def test_sizes(self):
+        from puzzleth import gfx, theme
+        self.assertEqual(theme.text_px(14), 14)
+        gfx.set_large_text(True)
+        try:
+            self.assertEqual(theme.text_px(14), 20)
+            self.assertEqual(theme.text_px(20), 28)
+            self.assertEqual(theme.text_px(54), 54)
+            sizes = [theme.text_px(k) for k in range(8, 60)]
+            self.assertEqual(sizes, sorted(sizes))
+            # fitting never goes below the desktop size
+            self.assertEqual(theme.text_px(gfx.fit_size(17, lambda k: False)), 17)
+            self.assertEqual(gfx.fit_size(17, lambda k: True), 17)
+        finally:
+            gfx.set_large_text(False)
+        self.assertEqual(gfx.fit_size(17, lambda k: False), 17)
+
+
+class StageTests(unittest.TestCase):
+    def test_stage_fills_any_screen(self):
+        from puzzleth.display import Stage, stage_size
+        self.assertEqual(stage_size(1280, 800), (1280, 800))
+        for w, h in [(844, 390), (1024, 768), (390, 844), (2560, 1080), (1, 1)]:
+            sw, sh = stage_size(w, h)
+            self.assertGreaterEqual(sw, 1280)
+            self.assertGreaterEqual(sh, 800)
+            self.assertTrue(sw == 1280 or sh == 800)                # as small as it can be
+            self.assertAlmostEqual(sw / sh, w / h, delta=0.01)    # with the screen's shape
+        stage = Stage(pygame.Surface((1731, 800)))
+        self.assertEqual(stage.canvas.get_size(), (1280, 800))
+        self.assertEqual(stage.to_canvas((225, 10)), (0, 10))
+        e = stage.map_event(pygame.event.Event(pygame.MOUSEBUTTONDOWN, pos=(865, 400), button=1))
+        self.assertEqual(e.pos, (640, 400))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -6,7 +6,7 @@ import pygame
 from . import gfx, scoring, sound, web
 from . import theme as T
 from .challenge import START_RATING, DailyLadder, RatedLadder
-from .display import Display
+from .display import Display, Stage, stage_size
 from .scenes import (BatteryResultScene, DisclaimerScene, IntroScene, LadderResultScene, LearnScene, MenuScene,
                      PauseOverlay, SubtestResultScene)
 from .storage import Profile
@@ -20,15 +20,16 @@ class App:
         pygame.init()
         self.profile = Profile()
         sound.init(self.profile.settings["sfx_volume"], self.profile.settings["music_volume"])
-        self.display = None
-        if screen is None and web.IS_WEB:
-            # the browser page scales the canvas to fit the screen
-            screen = pygame.display.set_mode((T.W, T.H))
-        elif screen is None:
-            # real window: draw on a fixed canvas that the GPU scales to whatever size the window is
-            self.display = Display(fullscreen=self.profile.settings.get("fullscreen", False))
-            screen = self.display.canvas
-        self.screen = screen
+        if screen is not None:
+            self.stage = Stage(screen)
+        elif web.IS_WEB:
+            # the browser page scales the stage to fit the page, which has the page's shape
+            self.stage = Stage()
+            self._fit_page()
+        else:
+            # real window: the GPU scales the stage to whatever size the window is
+            self.stage = Display(fullscreen=self.profile.settings.get("fullscreen", False))
+        self.display = self.stage if isinstance(self.stage, Display) else None
         self.clock = pygame.time.Clock()
         self.bg = gfx.Background()
         self.t = 0.0
@@ -40,6 +41,8 @@ class App:
         self.current_ladder = None
         self.touch = web.IS_WEB   # show on-screen keypads and buttons
         self.portrait = False
+        if web.IS_WEB:   # before the first scene lays itself out
+            self._check_large_text()
         self.scene = MenuScene(self) if self.profile.settings.get("disclaimer_seen") else DisclaimerScene(self)
 
     # ------------------------------------------------------------ flow
@@ -138,11 +141,22 @@ class App:
         else:
             self.goto(SubtestResultScene(self, type(sub), raw, scaled, best_before, details))
 
+    @property
+    def screen(self):
+        """The 1280x800 canvas every scene is laid out on (the centre of the stage)."""
+        return self.stage.canvas
+
+    def _fit_page(self):
+        size = stage_size(*web.view_size())
+        if self.stage.surface is None or self.stage.surface.get_size() != size:
+            self.stage.use(pygame.display.set_mode(size))
+            self.stage.activate()
+            web.refit_canvas()
+
     # ------------------------------------------------------------ loop
     def step(self, dt, events):
         for e in events:
-            if self.display:
-                e = self.display.map_event(e)
+            e = self.stage.map_event(e)
             if e.type == pygame.FINGERDOWN:
                 self.touch = True
             sound.handle_event(e)
@@ -188,6 +202,12 @@ class App:
         gfx.text(self.screen, "Turn your phone sideways", (c[0], c[1] + 90), 64, T.TEXT, bold=True, anchor="center")
         gfx.text(self.screen, "Puzzleth is played in landscape", (c[0], c[1] + 160), 40, T.MUTED, anchor="center")
 
+    @staticmethod
+    def _check_large_text():
+        # phones show the canvas at about half size: draw the small print larger there. Screens
+        # opened from then on make room for it; the open one fits it in as best it can.
+        gfx.set_large_text(web.view_scale(T.W, T.H) < 0.75)
+
     async def run_async(self):
         # yielding to the event loop every frame is what lets the game run inside a browser
         frame = 0
@@ -196,7 +216,11 @@ class App:
             self.step(dt, pygame.event.get())
             if web.IS_WEB and frame % 30 == 0:
                 self.portrait = web.is_portrait()
+                self._check_large_text()
+                self._fit_page()
             frame += 1
+            if self.display:
+                self.display.update_size()
             self.render()
             if self.display:
                 self.display.present()

@@ -42,6 +42,35 @@ def ease_in_out(t):
 _text_cache = {}
 
 
+def set_large_text(on):
+    """Switch theme.large_text; returns True if that changed anything."""
+    if T.large_text == on:
+        return False
+    T.large_text = on
+    _text_cache.clear()
+    return True
+
+
+def fit_size(size, fits):
+    """The largest text size, from ``size`` down to no smaller than ``size`` is drawn on a desktop,
+    for which ``fits(size)`` holds. Large text can otherwise push dense panels past their edges."""
+    s = size
+    while s > 1 and T.text_px(s - 1) >= size and not fits(s):
+        s -= 1
+    return s
+
+
+def fit_width(s, size, width, bold=False, mono=False):
+    """fit_size for a single line of text that must stay within ``width``."""
+    return fit_size(size, lambda k: T.font(k, bold, mono).size(str(s))[0] <= width)
+
+
+def block_height(paras, width, size, bold=False, spacing=1.35, gap=0):
+    """Height text_block would use for each of ``paras``, plus ``gap`` after each."""
+    lh = int(T.font(size, bold).get_linesize() * spacing)
+    return sum(lh * len(wrap(p, size, width, bold)) + gap for p in paras)
+
+
 def render_text(s, size, color, bold=False, mono=False):
     key = (s, size, tuple(color), bold, mono)
     img = _text_cache.get(key)
@@ -252,6 +281,8 @@ def panel(surf, rect, fill=T.PANEL, border=T.BORDER, radius=14, alpha=235, borde
 
 
 def overlay(surf, color=(0, 0, 0), alpha=150):
+    # on the game canvas this covers the whole stage around it too (see display.py)
+    surf = surf.get_abs_parent()
     s = pygame.Surface(surf.get_size(), pygame.SRCALPHA)
     s.fill((*color, int(alpha)))
     surf.blit(s, (0, 0))
@@ -261,31 +292,42 @@ def overlay(surf, color=(0, 0, 0), alpha=150):
 
 
 class Background:
-    """Soft radial gradient with nebula tints and drifting motes."""
+    """Soft radial gradient with nebula tints and drifting motes. It is laid out on the 1280x800
+    canvas and continues past its edges to fill a stage of any shape (see display.py)."""
 
     def __init__(self):
-        sw, sh = 96, 60
+        self.size = None
+
+    def _build(self, w, h):
+        self.size = (w, h)
+        ox, oy = (w - T.W) / 2, (h - T.H) / 2
+        sw, sh = max(2, round(96 * w / T.W)), max(2, round(60 * h / T.H))
         small = pygame.Surface((sw, sh))
         blobs = [((0.18, 0.2), T.INDEX_COLORS["VCI"], 0.10), ((0.85, 0.8), T.INDEX_COLORS["WMI"], 0.09),
                  ((0.9, 0.15), T.INDEX_COLORS["PRI"], 0.05)]
         for y in range(sh):
             for x in range(sw):
-                u, v = x / (sw - 1), y / (sh - 1)
+                u, v = (x / (sw - 1) * w - ox) / T.W, (y / (sh - 1) * h - oy) / T.H   # canvas fractions
                 d = math.hypot((u - 0.5) * 1.25, v - 0.38)
                 c = list(lerp_color(T.BG2, T.BG, clamp(d * 1.5, 0, 1) ** 0.9))
                 for (bx, by), col, k in blobs:
                     f = max(0.0, 1 - math.hypot(u - bx, (v - by) * 0.8) / 0.45) ** 2 * k
                     c = [min(255, int(ci + cc * f)) for ci, cc in zip(c, col)]
                 small.set_at((x, y), c)
-        self.base = pygame.transform.smoothscale(small, (T.W, T.H))
+        self.base = pygame.transform.smoothscale(small, (w, h))
         rng = random.Random(11)
-        self.motes = [(rng.uniform(0, T.W), rng.uniform(0, T.H), rng.uniform(1.5, 4.5), rng.uniform(0, TAU),
-                       rng.uniform(3, 12)) for _ in range(70)]
+        self.motes = [(rng.uniform(0, w), rng.uniform(0, h), rng.uniform(1.5, 4.5), rng.uniform(0, TAU),
+                       rng.uniform(3, 12)) for _ in range(round(70 * w * h / (T.W * T.H)))]
 
     def draw(self, surf, t):
+        """Draws on the whole stage: ``surf`` may be the canvas or the stage itself."""
+        surf = surf.get_abs_parent()
+        if surf.get_size() != self.size:
+            self._build(*surf.get_size())
+        h = self.size[1]
         surf.blit(self.base, (0, 0))
         for x, y, size, phase, speed in self.motes:
-            yy = (y - t * speed) % (T.H + 40) - 20
+            yy = (y - t * speed) % (h + 40) - 20
             xx = x + math.sin(t * 0.2 + phase) * 12
             a = 0.25 + 0.35 * (0.5 + 0.5 * math.sin(t * 0.9 + phase))
             glow(surf, (xx, yy), size * 3, (120, 145, 220), a)
