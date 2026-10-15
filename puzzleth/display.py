@@ -1,7 +1,8 @@
-"""Window management. The game lays itself out on a fixed 1280x800 canvas, centred on a "stage" that
-has the shape of the window (or browser page): the background fills the whole stage and the stage
-fills the whole window, so there are no bars on any screen. A real window has the GPU scale the stage
-to the window in both windowed and fullscreen modes; in a browser the page scales it."""
+"""Window management. The game lays itself out on a fixed 1280x800 canvas (1280x600 in the compact
+layout, see theme.py), centred on a "stage" that has the shape of the window (or browser page): the
+background fills the whole stage and the stage fills the whole window, so there are no bars on any
+screen. A real window has the GPU scale the stage to the window in both windowed and fullscreen modes;
+in a browser the page scales it."""
 import os
 
 import pygame
@@ -20,7 +21,7 @@ def mouse_pos():
     return _active.to_canvas(pos) if _active else pos
 
 
-def fit(w, h, cw=T.W, ch=T.H):
+def fit(w, h, cw, ch):
     """Largest cw x ch-shaped rectangle centred in a w x h area."""
     scale = min(w / cw, h / ch)
     dw, dh = max(1, round(cw * scale)), max(1, round(ch * scale))
@@ -38,7 +39,7 @@ def stage_size(w, h):
 
 class Stage:
     """The surface the game is drawn on: ``surface`` is the whole stage, ``canvas`` the centred
-    1280x800 part that scenes lay themselves out on."""
+    T.W x T.H part that scenes lay themselves out on."""
 
     def __init__(self, surface=None):
         self.surface = None

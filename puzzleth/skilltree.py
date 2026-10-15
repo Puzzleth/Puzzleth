@@ -23,13 +23,26 @@ class SkillTree:
         "VCI": (-250, -145), "IN": (-365, -270), "VC": (-415, -145), "SI": (-365, -20),
         "WMI": (-250, 145), "AR": (-405, 130), "DS": (-350, 255),
     }
+    # the compact layout (see theme.py): about 450 tall instead of 600, the subtests staggered in
+    # two columns so that each name stays clear of its neighbours
+    _LEFT_COMPACT = {
+        "VCI": (-190, -95), "IN": (-340, -175), "VC": (-460, -105), "SI": (-330, -15),
+        "WMI": (-190, 105), "AR": (-460, 85), "DS": (-330, 165),
+    }
+    # as compact, but only about 720 wide: there is no room for the names, the nodes show their codes
+    _LEFT_NARROW = {
+        "VCI": (-165, -105), "IN": (-255, -185), "VC": (-320, -95), "SI": (-280, -5),
+        "WMI": (-165, 105), "AR": (-320, 95), "DS": (-255, 185),
+    }
     _MIRROR = {"VCI": "PRI", "IN": "BD", "VC": "MR", "SI": "VP", "WMI": "PSI", "AR": "SS", "DS": "CD"}
 
-    def __init__(self, center=(T.W // 2, 460), sx=1.0, sy=1.0):
+    def __init__(self, center=(T.W // 2, 460), sx=1.0, sy=1.0, layout="full"):
         cx, cy = center
         self.center = center
+        self.names = layout != "narrow"
+        left = {"full": self._LEFT, "compact": self._LEFT_COMPACT, "narrow": self._LEFT_NARROW}[layout]
         pos = {}
-        for k, (ox, oy) in self._LEFT.items():
+        for k, (ox, oy) in left.items():
             pos[k] = (cx + ox * sx, cy + oy * sy)
             pos[self._MIRROR[k]] = (cx - ox * sx, cy + oy * sy)
         self.index_pos = {k: pos[k] for k in scoring.INDEX_SUBTESTS}
@@ -130,7 +143,9 @@ class SkillTree:
             else:
                 gfx.text(surf, "–", (x, y - 3), 22, T.DIM, bold=True, anchor="center")
             gfx.text(surf, code, (x, y + 15), 11, col if scaled else T.DIM, bold=True, anchor="center")
-        gfx.text(surf, BY_CODE[code].name, (x, y + SUB_RING + 16), 14, T.TEXT if hover else T.MUTED, anchor="center")
+        if self.names:
+            gfx.text(surf, BY_CODE[code].name, (x, y + SUB_RING + 16), 14, T.TEXT if hover else T.MUTED,
+                     anchor="center")
 
     def _index_node(self, surf, pos, idx, score, frac, hover, t, hide=False):
         x, y = pos

@@ -20,7 +20,11 @@ from .. import gfx, sound
 from .. import theme as T
 
 CONTINUE_KEYS = (pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_SPACE)
-PAUSE_RECT = pygame.Rect(T.W - 170, T.H - 49, 140, 38)   # the app opens the pause menu on a click here
+
+
+def pause_rect():
+    """The pause button; the app opens the pause menu on a click here."""
+    return pygame.Rect(T.W - 170, T.H - 49, 140, 38)
 
 
 def tick_last_seconds(before, after, last=5):
@@ -100,8 +104,9 @@ class Subtest:
         self.draw_pause_button(surf)
 
     def draw_pause_button(self, surf):
-        gfx.panel(surf, PAUSE_RECT, T.PANEL, T.BORDER, radius=19)
-        gfx.text(surf, "Pause" if self.touch else "Pause  (Esc)", PAUSE_RECT.center, 15, T.MUTED, bold=True,
+        r = pause_rect()
+        gfx.panel(surf, r, T.PANEL, T.BORDER, radius=19)
+        gfx.text(surf, "Pause" if self.touch else "Pause  (Esc)", r.center, 15, T.MUTED, bold=True,
                  anchor="center")
 
     def draw_timer(self, surf, remaining, limit, center=(T.W - 70, 40), r=22):
@@ -110,7 +115,9 @@ class Subtest:
         if frac <= 0.25:
             gfx.glow(surf, center, r * 2.4, T.BAD, 0.25)
         gfx.ring(surf, center, r, 5, frac, col)
-        gfx.text(surf, f"{max(0, remaining):.0f}", center, 17, T.TEXT, bold=True, mono=True, anchor="center")
+        label = f"{max(0, remaining):.0f}"
+        size = gfx.fit_width(label, 17, 2 * r - 8, bold=True, mono=True)
+        gfx.text(surf, label, center, size, T.TEXT, bold=True, mono=True, anchor="center")
 
 
 class ItemSubtest(Subtest):
@@ -330,11 +337,15 @@ class ItemSubtest(Subtest):
             remaining = lim - self.timer_elapsed() if self.state == "item" else lim - min(lim, self.timer_elapsed())
             self.draw_timer(surf, remaining, lim)
         self.draw_item(surf)
-        if self.state == "feedback":
-            if self.fb["show"]:
-                self.draw_feedback(surf)
-            else:
-                gfx.overlay(surf, T.BG, 160 * gfx.ease_out(self.fb_t / 0.35))
+        if self.state == "feedback" and not self.fb["show"]:
+            gfx.overlay(surf, T.BG, 160 * gfx.ease_out(self.fb_t / 0.35))
+        if self.state == "feedback" and self.fb["show"] and T.compact:
+            # the feedback bar takes the footer's place; only the pause button stays
+            self.draw_pause_button(surf)
+            self.draw_feedback(surf)
+            return
+        if self.state == "feedback" and self.fb["show"]:
+            self.draw_feedback(surf)
         if self.ladder:
             self._draw_ladder_footer(surf)
         elif self.feedback:
@@ -366,6 +377,9 @@ class ItemSubtest(Subtest):
         word = "Perfect" if p == mx else ("Partial credit" if p > 0 else "No credit")
         rect = pygame.Rect(0, 0, 760, 74)
         rect.midbottom = (T.W // 2, T.H - 52)
+        if T.compact:   # over the footer, clear of the pause button
+            rect.w = 860
+            rect.midbottom = (T.W // 2 - 50, T.H - 10)
         a = gfx.ease_out(self.fb_t / 0.25)
         rect.y += int((1 - a) * 20)
         gfx.glow(surf, rect.center, 360, col, 0.18 * a)
@@ -373,9 +387,13 @@ class ItemSubtest(Subtest):
         gfx.circle(surf, (rect.x + 40, rect.centery), 22, col)
         gfx.text(surf, f"+{p}", (rect.x + 40, rect.centery), 18, T.BG, bold=True, anchor="center")
         head = f"{word}  ·  {p} / {mx}" + ("   (sample, not scored)" if self.is_sample else "")
-        gfx.text(surf, head, (rect.x + 76, rect.y + 14), 19, col, bold=True)
+        head_y = rect.y + (8 if T.large_text else 14)
+        gfx.text(surf, head, (rect.x + 76, head_y), 19, col, bold=True)
         if self.fb["explain"]:
-            gfx.text(surf, self.fb["explain"], (rect.x + 76, rect.y + 42), 15, T.TEXT)
+            explain_y = head_y + max(28, T.font(19, True).get_linesize())
+            room = rect.w - 116 - T.font(15).size(self.prompt("Enter to continue"))[0]
+            gfx.text(surf, self.fb["explain"], (rect.x + 76, explain_y), gfx.fit_width(self.fb["explain"], 15, room),
+                     T.TEXT)
         gfx.text(surf, self.prompt("Enter to continue"), (rect.right - 20, rect.centery), 15, T.MUTED,
                  anchor="midright")
 

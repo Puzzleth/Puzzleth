@@ -25,9 +25,10 @@ class SymbolSearch(SpeedSubtest):
     controls = ["YES:  Y  or  ←        NO:  N  or  →", "Or click the buttons."]
 
     def setup(self):
-        self.yes_btn = Button((T.W // 2 - 230, 520, 200, 64), "YES", lambda: self._resp(True), T.GOOD,
+        y, w, h = (326, 240, 84) if T.compact else (520, 200, 64)
+        self.yes_btn = Button((T.W // 2 - 30 - w, y, w, h), "YES", lambda: self._resp(True), T.GOOD,
                               hotkeys=(pygame.K_y, pygame.K_LEFT), size=24, sound=None)
-        self.no_btn = Button((T.W // 2 + 30, 520, 200, 64), "NO", lambda: self._resp(False), T.BAD,
+        self.no_btn = Button((T.W // 2 + 30, y, w, h), "NO", lambda: self._resp(False), T.BAD,
                              hotkeys=(pygame.K_n, pygame.K_RIGHT), size=24, sound=None)
 
     def new_item(self, practice=False):
@@ -64,7 +65,7 @@ class SymbolSearch(SpeedSubtest):
 
     def draw_item(self, surf):
         size = 96
-        y = 330
+        y = 212 if T.compact else 330
         # two targets, a divider, five search symbols: 112 px pitch, centred as one row
         cx = T.W // 2
         tx = [cx - 340, cx - 228]
@@ -86,8 +87,8 @@ class SymbolSearch(SpeedSubtest):
         self.yes_btn.draw(surf)
         self.no_btn.draw(surf)
         if self.state == "run":
-            gfx.text(surf, f"{self.correct + self.wrong} / {self.max_raw}", (T.W // 2, 640), 16, T.DIM,
-                     anchor="center")
+            gfx.text(surf, f"{self.correct + self.wrong} / {self.max_raw}", (T.W // 2, 450 if T.compact else 640), 16,
+                     T.DIM, anchor="center")
 
 
 class Coding(SpeedSubtest):
@@ -139,10 +140,15 @@ class Coding(SpeedSubtest):
         s = self.seq if self.run_mode else self.practice_seq
         return s[min(self.pos, len(s) - 1)]
 
+    # compact: shorter boxes, so that both rows fit under the key
+    @staticmethod
+    def _key_y():
+        return 116 if T.compact else 128
+
     def _key_rect(self, i):
         kw = 76
         kx0 = T.W // 2 - kw * 9 // 2
-        return pygame.Rect(kx0 + i * kw, 118, kw, 132)
+        return pygame.Rect(kx0 + i * kw, self._key_y() - 10, kw, 132)
 
     def handle_item(self, e):
         d = None
@@ -163,7 +169,7 @@ class Coding(SpeedSubtest):
         # key
         kw = 76
         kx0 = T.W // 2 - kw * 9 // 2
-        ky = 128
+        ky = self._key_y()
         gfx.panel(surf, (kx0 - 14, ky - 10, kw * 9 + 28, 132), T.PANEL, T.BORDER, radius=14)
         gfx.text(surf, "KEY", (kx0 - 30, ky + 56), 13, self.accent, bold=True, anchor="midright")
         for i, g in enumerate(self.key):
@@ -176,25 +182,27 @@ class Coding(SpeedSubtest):
         seq = self.seq if self.run_mode else self.practice_seq
         per_page = self.COLS * self.ROWS
         page = max(0, self.pos) // per_page if self.run_mode else 0
-        cw, ch = 70, 132
+        cw, ch = (70, 112) if T.compact else (70, 132)
+        top, row_gap = (254, 14) if T.compact else (320, 22)
+        sy = ch / 132   # vertical scale of the box contents
         x0 = T.W // 2 - cw * self.COLS // 2
         for k in range(per_page):
             idx = page * per_page + k
             if idx >= len(seq):
                 break
             row, col = divmod(k, self.COLS)
-            r = pygame.Rect(x0 + col * cw + 3, 320 + row * (ch + 22), cw - 6, ch)
+            r = pygame.Rect(x0 + col * cw + 3, top + row * (ch + row_gap), cw - 6, ch)
             current = idx == self.pos
             border = self.accent if current else T.BORDER
             fill = gfx.lerp_color(T.PANEL, self.accent, 0.16) if current else T.PANEL
             if current:
                 gfx.glow(surf, r.center, 70, self.accent, 0.25)
             gfx.panel(surf, r, fill, border, radius=10)
-            glyphs.draw(surf, self.key[seq[idx] - 1], (r.centerx, r.y + 36), 44, T.TEXT if idx >= self.pos else T.DIM)
-            pygame.draw.line(surf, T.TRACK, (r.x + 8, r.y + 70), (r.right - 8, r.y + 70), 1)
+            glyphs.draw(surf, self.key[seq[idx] - 1], (r.centerx, r.y + 36 * sy), 44, T.TEXT if idx >= self.pos else T.DIM)
+            pygame.draw.line(surf, T.TRACK, (r.x + 8, r.y + 70 * sy), (r.right - 8, r.y + 70 * sy), 1)
             if idx < self.pos:
                 shown = self.responses[idx] if self.run_mode and idx < len(self.responses) else seq[idx]
-                gfx.text(surf, str(shown), (r.centerx, r.y + 101), 28, self.accent, bold=True, mono=True,
+                gfx.text(surf, str(shown), (r.centerx, r.y + 101 * sy), 28, self.accent, bold=True, mono=True,
                          anchor="center")
             elif current and int(self.t * 2) % 2 == 0:
                 pygame.draw.rect(surf, self.accent, (r.centerx - 10, r.bottom - 18, 20, 3), border_radius=2)

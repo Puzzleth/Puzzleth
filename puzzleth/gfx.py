@@ -292,14 +292,15 @@ def overlay(surf, color=(0, 0, 0), alpha=150):
 
 
 class Background:
-    """Soft radial gradient with nebula tints and drifting motes. It is laid out on the 1280x800
-    canvas and continues past its edges to fill a stage of any shape (see display.py)."""
+    """Soft radial gradient with nebula tints and drifting motes. It is laid out on the canvas
+    and continues past its edges to fill a stage of any shape (see display.py)."""
 
     def __init__(self):
         self.size = None
 
     def _build(self, w, h):
         self.size = (w, h)
+        self.canvas_h = T.H
         ox, oy = (w - T.W) / 2, (h - T.H) / 2
         sw, sh = max(2, round(96 * w / T.W)), max(2, round(60 * h / T.H))
         small = pygame.Surface((sw, sh))
@@ -322,7 +323,7 @@ class Background:
     def draw(self, surf, t):
         """Draws on the whole stage: ``surf`` may be the canvas or the stage itself."""
         surf = surf.get_abs_parent()
-        if surf.get_size() != self.size:
+        if surf.get_size() != self.size or T.H != self.canvas_h:
             self._build(*surf.get_size())
         h = self.size[1]
         surf.blit(self.base, (0, 0))

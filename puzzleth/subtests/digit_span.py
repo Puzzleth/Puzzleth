@@ -41,8 +41,9 @@ class DigitSpan(Subtest):
         self.score = 0
         self.task_scores = [0, 0, 0]
         self.longest = [0, 0, 0]
-        self.entry = DigitEntry((T.W // 2, 430), accent=self.accent)
-        self.keypad = Keypad(540, [str(d) for d in range(1, 10)] + ["Del"], self.accent)
+        self.entry = DigitEntry((T.W // 2, 286 if T.compact else 430), accent=self.accent)
+        self.keypad = Keypad(400 if T.compact else 540, [str(d) for d in range(1, 10)] + ["Del"], self.accent,
+                             key_w=90 if T.compact else 78, key_h=72 if T.compact else 64)
         self._task_intro()
 
     def _task_intro(self):
@@ -174,7 +175,8 @@ class DigitSpan(Subtest):
             sub = f"{name}  ·  {self._length()} digits  ·  trial {self.trial + 1} of 2"
         self.draw_header(surf, sub, right=f"Score {self.score}" if self.feedback else "")
         self._draw_task_track(surf)
-        cx, cy = T.W // 2, 330
+        cx, cy = T.W // 2, (266 if T.compact else 330)
+        fb_y = 376 if T.compact else 540   # (the keypad's place)
 
         if self.state == "intro":
             gfx.glow(surf, (cx, cy), 260, self.accent, 0.2)
@@ -208,14 +210,14 @@ class DigitSpan(Subtest):
             if self.state == "feedback" and (self.feedback or self.fb["sample"]):
                 ok = self.fb["ok"]
                 col = T.GOOD if ok else T.BAD
-                gfx.glow(surf, (cx, 560), 260, col, 0.15)
+                gfx.glow(surf, (cx, fb_y + 20), 260, col, 0.15)
                 word = "Correct" if ok else "Incorrect"
                 tag = "  (sample — not scored)" if self.fb["sample"] else ("  +1" if ok else "  +0")
-                gfx.text(surf, word + tag, (cx, 540), 26, col, bold=True, anchor="center")
+                gfx.text(surf, word + tag, (cx, fb_y), 26, col, bold=True, anchor="center")
                 shown = " ".join(map(str, self.seq))
-                gfx.text(surf, f"Presented: {shown}     Answer: {' '.join(map(str, self.target))}", (cx, 584), 19,
-                         T.TEXT, mono=True, anchor="center")
-                gfx.text(surf, self.prompt("Enter to continue"), (cx, 630), 16, T.MUTED, anchor="center")
+                gfx.text(surf, f"Presented: {shown}     Answer: {' '.join(map(str, self.target))}", (cx, fb_y + 44),
+                         19, T.TEXT, mono=True, anchor="center")
+                gfx.text(surf, self.prompt("Enter to continue"), (cx, fb_y + 90), 16, T.MUTED, anchor="center")
         self.draw_footer(surf, "Each task stops when both trials of one length are failed")
 
     def _draw_task_track(self, surf):
