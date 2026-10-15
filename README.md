@@ -57,7 +57,7 @@ in their last five seconds, and right/wrong chimes play only when feedback is on
 assessment never gives anything away. Settings has separate volumes for sound effects and music.
 
 **Your own music and sounds.** Put `.mp3`, `.ogg` or `.wav` files in `puzzleth/music/` and they
-play in a shuffled loop. To change any sound effect or the spoken digits, add a file with the same
+play in a shuffled loop, each fading in and out. To change any sound effect or the spoken digits, add a file with the same
 name to `puzzleth/sounds/`; [puzzleth/sounds/README.md](puzzleth/sounds/README.md) lists every
 sound and when it plays. On the desktop you can use `~/.puzzleth/music/` and `~/.puzzleth/sounds/`
 instead, leaving the game's own folders untouched.

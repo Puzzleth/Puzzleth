@@ -2,15 +2,18 @@
 
 Every sound is a file you can replace: put a file with the same name (any of .ogg, .wav, .mp3) in
 one of the sound folders and it is used instead (sounds/README.md lists the names). Music is every
-audio file in a music folder, played in a shuffled loop. Folders, first match wins:
+audio file in a music folder, played in a shuffled loop, each fading in and out. Folders, first
+match wins:
 
     ~/.puzzleth/sounds/   ~/.puzzleth/music/       (desktop only: next to your saved progress)
     puzzleth/sounds/      puzzleth/music/          (bundled with the game, also in the web build)
 
 Without an audio device everything here silently does nothing.
 """
+
 import os
 import random
+import threading
 
 import pygame
 
@@ -20,11 +23,19 @@ PKG = os.path.dirname(os.path.abspath(__file__))
 EXTS = (".ogg", ".wav", ".mp3")
 USER_FIRST = {".wav": 0, ".mp3": 1, ".ogg": 2}
 MUSIC_END = pygame.USEREVENT + 7
-DUCK = 0.25          # music volume while digits are being spoken
+DUCK = 0.25  # music volume while digits are being spoken
+FADE_IN = 0.0  # seconds of fade at the start of every song
+FADE_OUT = 0.0  # ... and at its end
 
 # per-sound loudness (0..1), on top of the "Sound effects" setting
-LEVELS = {"tap": 0.5, "key": 0.5, "select": 0.7, "blip": 0.6, "tick": 0.7,
-          **{f"digit{d}": 1.0 for d in range(1, 10)}}
+LEVELS = {
+    "tap": 0.5,
+    "key": 0.5,
+    "select": 0.7,
+    "blip": 0.6,
+    "tick": 0.7,
+    **{f"digit{d}": 1.0 for d in range(1, 10)},
+}
 
 _ok = False
 _sounds = {}
@@ -33,6 +44,11 @@ _music = 0.5
 _ducked = False
 _tracks = []
 _queue = []
+_current = None  # the music file loaded now
+_started = 0  # pygame.time.get_ticks() when it started playing
+_fade = 0.0  # where its fade in or out is now (0 silent .. 1 full)
+_lengths = {}  # path -> seconds, measured in the background on the desktop
+_check = 0.0
 
 
 def folders(kind):
@@ -55,6 +71,10 @@ def init(sfx_volume=0.75, music_volume=0.5):
         return
     _load_sounds()
     _find_tracks()
+    if _tracks and not web.IS_WEB:
+        threading.Thread(
+            target=_measure_lengths, args=(list(_tracks),), daemon=True
+        ).start()
     pygame.mixer.music.set_endevent(MUSIC_END)
     set_volumes(sfx_volume, music_volume)
 
@@ -70,7 +90,9 @@ def _sound_files():
         if not os.path.isdir(d):
             continue
         files = [os.path.splitext(f) + (f,) for f in os.listdir(d)]
-        for name, ext, f in sorted(files, key=lambda x: (x[0], USER_FIRST.get(x[1].lower(), 9))):
+        for name, ext, f in sorted(
+            files, key=lambda x: (x[0], USER_FIRST.get(x[1].lower(), 9))
+        ):
             if ext.lower() in EXTS and name not in found:
                 found[name] = os.path.join(d, f)
     return found
@@ -89,8 +111,11 @@ def _find_tracks():
     _tracks.clear()
     for d in folders("music"):
         if os.path.isdir(d):
-            _tracks.extend(os.path.join(d, f) for f in sorted(os.listdir(d))
-                           if os.path.splitext(f)[1].lower() in EXTS)
+            _tracks.extend(
+                os.path.join(d, f)
+                for f in sorted(os.listdir(d))
+                if os.path.splitext(f)[1].lower() in EXTS
+            )
 
 
 def tracks():
@@ -112,11 +137,15 @@ def set_volumes(sfx, music):
     if not _ok:
         return
     if music <= 0 or not _tracks:
-        pygame.mixer.music.stop()
-        return
-    pygame.mixer.music.set_volume(music * (DUCK if _ducked else 1.0))
-    if not pygame.mixer.music.get_busy():
+        _stop_music()
+    elif _current:
+        _apply_volume()
+    else:
         _next_track()
+
+
+def _apply_volume():
+    pygame.mixer.music.set_volume(_music * (DUCK if _ducked else 1.0) * _fade)
 
 
 def duck(on):
@@ -124,25 +153,80 @@ def duck(on):
     global _ducked
     if on != _ducked:
         _ducked = on
-        if _ok and _music > 0:
-            pygame.mixer.music.set_volume(_music * (DUCK if on else 1.0))
+        if _ok and _current:
+            _apply_volume()
+
+
+def _stop_music():
+    global _current
+    if _current:
+        pygame.mixer.music.stop()
+        _current = None
+        if web.IS_WEB:
+            web.want_music(False)
 
 
 def _next_track():
+    global _current, _started, _fade
     if not _queue:
         _queue.extend(random.sample(_tracks, len(_tracks)))
+        if len(_tracks) > 1 and _queue[-1] == _current:  # no song twice in a row
+            _queue.insert(0, _queue.pop())
     path = _queue.pop()
     try:
         pygame.mixer.music.load(path)
-        # a single track simply loops; several play one after another
-        pygame.mixer.music.play(-1 if len(_tracks) == 1 else 0, fade_ms=2000)
+        _current, _started, _fade = path, pygame.time.get_ticks(), 0.0
+        _apply_volume()  # after loading: in browsers every track has its own volume
+        pygame.mixer.music.play()  # once; the next song (or this one again) follows when it ends
     except pygame.error as e:
         print(f"Puzzleth: can't play {os.path.basename(path)}: {e}")
+        _current = None
         _tracks.remove(path)
         if _tracks:
             _next_track()
+        return
+    if web.IS_WEB:
+        web.want_music(True)  # browsers start it on the next click, tap or key press
+
+
+def _measure_lengths(paths):
+    """pygame can't tell how long a song is without decoding it, so do that off the main thread."""
+    for path in paths:
+        try:
+            _lengths[path] = pygame.mixer.Sound(path).get_length()
+        except pygame.error:
+            pass
+
+
+def _position():
+    """(seconds played, song length or None) of the current song."""
+    if web.IS_WEB:
+        return web.music_position()
+    return (pygame.time.get_ticks() - _started) / 1000, _lengths.get(_current)
 
 
 def handle_event(e):
-    if e.type == MUSIC_END and _ok and _music > 0 and len(_tracks) > 1:
+    if e.type == MUSIC_END and _ok and _music > 0 and _current:
         _next_track()
+
+
+def update(dt):
+    """Fade songs in and out, and in a browser notice when one ends (no MUSIC_END event comes)."""
+    global _check, _fade
+    if not (_ok and _current and _music > 0):
+        return
+    _check += dt
+    if _check < 0.1:
+        return
+    _check = 0.0
+    if web.IS_WEB and web.music_ended():
+        _next_track()
+        return
+    pos, length = _position()
+    fade = max(0.0, min(1.0, pos / FADE_IN))
+    if length:
+        fade = min(fade, max(0.0, (length - pos) / FADE_OUT))
+    fade = round(fade, 2)
+    if fade != _fade:
+        _fade = fade
+        _apply_volume()

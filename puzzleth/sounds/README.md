@@ -34,5 +34,7 @@ recordings are public domain.
 ## Music
 
 Put your own music files (`.mp3`, `.ogg` or `.wav`) in `puzzleth/music/`, or on the desktop in
-`~/.puzzleth/music/`. Puzzleth plays all of them in a shuffled loop, and the Music setting sets
-the volume. The music turns down while Digit Span reads digits out.
+`~/.puzzleth/music/`. Puzzleth plays all of them in a shuffled loop, fading each one in at the
+start and out at the end (`FADE_IN` and `FADE_OUT` in `puzzleth/sound.py`, in seconds). The Music
+setting sets the volume. The music turns down while Digit Span reads digits out. In a browser it
+starts at your first click, tap or key press, since browsers don't allow sound before that.

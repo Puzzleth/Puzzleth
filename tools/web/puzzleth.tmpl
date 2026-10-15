@@ -246,6 +246,52 @@ config = {
     PYBUILD : "{{cookiecutter.PYBUILD}}"
 }
 
+// Browsers only let audio start from a click, tap or key press. pygbag plays pygame's music through
+// an <audio> element (a "track" in window.MM); the game names the one it wants with
+// puzzleth_want_music() (see puzzleth/web.py), and the next gesture starts it from inside the
+// gesture, which iPhones require. A play() refused before that is expected, so it is kept from
+// reaching pygbag's handler, which would show it as an "Error occurred" alert.
+window.addEventListener("unhandledrejection", (e) => {
+    if (e.reason && e.reason.name === "NotAllowedError") {
+        e.preventDefault()
+        e.stopImmediatePropagation()
+    }
+}, true)
+
+var puzzleth_music = 0
+
+function puzzleth_media() {
+    const track = puzzleth_music && window.MM && MM[puzzleth_music]
+    return track && track.media
+}
+
+function puzzleth_want_music(trackid) {
+    puzzleth_music = trackid
+}
+
+function puzzleth_music_pos() {
+    const media = puzzleth_media()
+    return media ? media.currentTime : 0
+}
+
+function puzzleth_music_length() {
+    const media = puzzleth_media()
+    return media && isFinite(media.duration) ? media.duration : 0
+}
+
+function puzzleth_music_ended() {
+    const media = puzzleth_media()
+    return media ? media.ended : false
+}
+
+function puzzleth_start_music() {
+    const media = puzzleth_media()
+    if (media && media.paused)
+        media.play().catch(() => {})
+}
+for (const ev of ["pointerdown", "touchend", "keydown"])
+    window.addEventListener(ev, puzzleth_start_music, true)
+
 </script>
 
     <title>{{cookiecutter.title}}</title>
