@@ -284,6 +284,31 @@ function puzzleth_music_ended() {
     return media ? media.ended : false
 }
 
+// The web build serves music next to the page instead of inside the game's download (see
+// tools/build_web.sh), so a song is streamed by its own <audio> element only when it starts.
+function puzzleth_stream_music(url) {
+    puzzleth_stop_music()
+    const track = MM.prepare(url, JSON.stringify({io: "url", type: "audio"}))
+    puzzleth_music = track.trackid
+    track.media.play().catch(() => {})  // refused until the first gesture: puzzleth_start_music
+}
+
+function puzzleth_stop_music() {
+    const media = puzzleth_media()
+    if (media) {
+        media.pause()
+        media.removeAttribute("src")  // stop downloading it
+        media.load()
+    }
+    puzzleth_music = 0
+}
+
+function puzzleth_music_volume(v) {
+    const media = puzzleth_media()
+    if (media)
+        media.volume = v
+}
+
 function puzzleth_start_music() {
     const media = puzzleth_media()
     if (media && media.paused)
@@ -323,8 +348,7 @@ for (const ev of ["pointerup", "touchend", "keyup"])
     <title>{{cookiecutter.title}}</title>
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="viewport" content="height=device-height, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1.0">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes"/>
     <meta name="theme-color" content="#080b18">

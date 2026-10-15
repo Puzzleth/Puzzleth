@@ -37,7 +37,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - run: pip install pygbag==0.9.2
+      - run: pip install pygbag==0.9.2 fonttools
       - run: command -v ffmpeg || (sudo apt-get update && sudo apt-get install -y ffmpeg)   # converts added .wav/.mp3
       - run: tools/build_web.sh
       - uses: actions/upload-pages-artifact@v3
