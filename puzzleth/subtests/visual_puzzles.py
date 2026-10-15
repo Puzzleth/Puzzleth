@@ -4,7 +4,7 @@ from itertools import combinations
 import pygame
 
 from ..display import mouse_pos
-from .. import gfx
+from .. import gfx, sound
 from .. import theme as T
 from ..widgets import Button
 from .base import ItemSubtest
@@ -165,7 +165,8 @@ class VisualPuzzles(ItemSubtest):
 
     def setup(self):
         self.confirm_btn = Button((T.W // 2 - 120, 648, 240, 48), "Confirm", self._confirm, self.accent,
-                                  hotkeys=(pygame.K_RETURN, pygame.K_KP_ENTER), primary=True, size=17)
+                                  hotkeys=(pygame.K_RETURN, pygame.K_KP_ENTER), primary=True, size=17,
+                                  sound=None)
 
     def make_item(self, n):
         r = self.rng
@@ -227,6 +228,9 @@ class VisualPuzzles(ItemSubtest):
             sel.remove(i)
         elif len(sel) < 3:
             sel.append(i)
+        else:
+            return
+        sound.play("select")
 
     def _confirm(self):
         sel = set(self.item["selected"])

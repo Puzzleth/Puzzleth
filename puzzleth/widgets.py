@@ -2,7 +2,7 @@
 import pygame
 
 from .display import mouse_pos
-from . import gfx
+from . import gfx, sound
 from . import theme as T
 
 
@@ -11,8 +11,10 @@ def _q(x):
 
 
 class Button:
-    def __init__(self, rect, label, on_click=None, accent=T.ACCENT, hotkeys=(), size=20, primary=False):
+    def __init__(self, rect, label, on_click=None, accent=T.ACCENT, hotkeys=(), size=20, primary=False,
+                 sound="tap"):
         self.rect = pygame.Rect(rect)
+        self.sound = sound   # None when on_click makes its own sound
         self.label = label
         self.on_click = on_click
         self.accent = accent
@@ -27,6 +29,8 @@ class Button:
             return False
         hit = (e.type == pygame.MOUSEBUTTONDOWN and e.button == 1 and self.rect.collidepoint(e.pos)) or \
               (e.type == pygame.KEYDOWN and e.key in self.hotkeys)
+        if hit and self.sound:
+            sound.play(self.sound)
         if hit and self.on_click:
             self.on_click()
         return hit
@@ -119,13 +123,16 @@ class DigitEntry:
             return "submit"
         if e.key == pygame.K_BACKSPACE:
             self.value = self.value[:-1]
+            sound.play("key")
             return True
         ch = e.unicode
         if ch and ch.isdigit() and len(self.value) < self.max_len:
             self.value += ch
+            sound.play("key")
             return True
         if self.allow_minus and ch == "-" and not self.value:
             self.value = "-"
+            sound.play("key")
             return True
         return False
 

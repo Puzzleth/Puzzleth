@@ -6,6 +6,7 @@ import datetime
 import hashlib
 import os
 import random
+import re
 import subprocess
 import sys
 import tempfile
@@ -66,6 +67,31 @@ def run_script(cls, script):
         s.submit(script(s.cur))
         s._advance()
     return app.result[0], order, s
+
+
+class Sounds(unittest.TestCase):
+    def test_every_documented_sound_is_bundled(self):
+        from puzzleth import sound
+        with open(os.path.join(ROOT, "puzzleth", "sounds", "README.md")) as f:
+            names = {n for line in f if line.startswith("| `") for n in
+                     re.findall(r"`(\w+)`", line.split("|")[1])}
+        names |= {f"digit{d}" for d in range(1, 10)}
+        self.assertLessEqual(names, set(sound._sound_files()))
+
+    def test_ticks_once_per_second_in_the_last_five(self):
+        from puzzleth import sound
+        from puzzleth.subtests import base
+        played = []
+        old = sound.play
+        sound.play = played.append
+        try:
+            t = 8.0
+            while t > 0:
+                base.tick_last_seconds(t, t - 1 / 60)
+                t -= 1 / 60
+        finally:
+            sound.play = old
+        self.assertEqual(played, ["tick"] * 5)
 
 
 class AdministrationRules(unittest.TestCase):

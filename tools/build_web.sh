@@ -13,6 +13,17 @@ cp main.py build/Puzzleth/
 cp -r puzzleth/. build/Puzzleth/puzzleth/
 find build/Puzzleth -name __pycache__ -prune -exec rm -rf {} +
 
+# browsers play .ogg most reliably, so added .wav/.mp3 sounds and music are converted (a converted
+# file replaces a bundled .ogg of the same name, as it would on the desktop)
+while IFS= read -r -d '' f; do
+  if command -v ffmpeg >/dev/null 2>&1; then
+    ffmpeg -y -loglevel error -i "$f" -vn -c:a libvorbis -q:a 4 "${f%.*}.ogg" && rm "$f"
+  else
+    echo "warning: ffmpeg not found, $f is left as it is and may not play in every browser" >&2
+  fi
+done < <(find build/Puzzleth/puzzleth/sounds build/Puzzleth/puzzleth/music -type f \
+           \( -iname '*.wav' -o -iname '*.mp3' \) -print0)
+
 args=(--template "$PWD/tools/web/puzzleth.tmpl" --icon "$PWD/tools/web/favicon.png" --title Puzzleth --app_name puzzleth --ume_block 0 build/Puzzleth)
 if [[ "${1:-}" == "--serve" ]]; then
   python3 -m pygbag "${args[@]}"

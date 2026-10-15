@@ -6,7 +6,7 @@ import pygame
 from .challenge import FLOOR, daily_number
 from .content.learn import TOPICS
 from .display import mouse_pos
-from . import gfx, scoring, web
+from . import gfx, scoring, sound, web
 from . import theme as T
 from .skilltree import SkillTree
 from .subtests import BY_CODE, ORDER
@@ -297,6 +297,7 @@ class IntroScene(Scene):
 class SubtestResultScene(Scene):
     def __init__(self, app, cls, raw, scaled, best_before, details):
         super().__init__(app)
+        sound.play("complete")
         self.cls = cls
         self.raw = raw
         self.scaled = scaled
@@ -368,6 +369,7 @@ class SubtestResultScene(Scene):
 class BatteryResultScene(Scene):
     def __init__(self, app, scaled, raw, indexes, fsiq):
         super().__init__(app)
+        sound.play("complete")
         self.tree = SkillTree(center=(475, 460), sx=0.82)
         self.scaled = scaled
         self.raw = raw
@@ -473,6 +475,7 @@ class LadderResultScene(Scene):
 
     def __init__(self, app, ladder, counted=False):
         super().__init__(app)
+        sound.play("complete")
         self.ladder = ladder
         self.counted = counted
         self.status = ""
@@ -666,30 +669,51 @@ class LearnScene(Scene):
         super().draw(surf)
 
 
+VOLUMES = (0.0, 0.25, 0.5, 0.75, 1.0)
+
+
 class SettingsScene(Scene):
+    ROW = 100
+
     def __init__(self, app):
         super().__init__(app)
         s = app.profile.settings
+        n = len(sound.tracks())
+        if not sound.available():
+            music_desc = "No audio device was found."
+        elif n:
+            music_desc = (f"Plays the {n} track{'s' if n != 1 else ''} in your music folder on a shuffled loop. "
+                          "It turns down while digits are read out.")
+        else:
+            music_desc = ("Put your own mp3, ogg or wav files in the puzzleth/music folder" +
+                          ("." if web.IS_WEB else " or ~/.puzzleth/music.") + " None found yet.")
         self.rows = [
             ("Feedback while training",
              "After each item, show how it was scored and the best answer. The full assessment never gives "
              "feedback, just like the real test.",
              lambda: s.get("feedback", True), lambda: self._flip("feedback"), ("On", "Off")),
             ("Test-style scores",
-             "Show scaled scores, index scores and the Full Scale Score. Hide them to practise the experience without "
-             "a number. Puzzle ratings and daily results still show.",
+             "Show scaled scores, index scores and the Full Scale Score. Hide them to practise without a number. "
+             "Puzzle ratings and daily results still show.",
              lambda: s.get("show_scores", True), lambda: self._flip("show_scores"), ("Shown", "Hidden")),
+            ("Sound effects",
+             "Clicks, timer ticks and the spoken digits in Digit Span. Right/wrong chimes only play when "
+             "feedback is shown." if sound.available() else "No audio device was found.",
+             lambda: s["sfx_volume"], lambda: self._volume("sfx_volume"), _volume_label),
+            ("Music", music_desc, lambda: s["music_volume"], lambda: self._volume("music_volume"), _volume_label),
             ("Fullscreen  (F11)",
              "Use your browser's menu to go fullscreen, or add Puzzleth to your home screen." if web.IS_WEB else
              "Fill the whole screen. In a window, the game scales to any size you like.",
              lambda: app.fullscreen, app.toggle_fullscreen, ("On", "Off")),
         ]
-        self.panel = pygame.Rect(T.W // 2 - 420, 150, 840, 470)
+        self.panel = pygame.Rect(T.W // 2 - 420, 118, 840, 16 + len(self.rows) * self.ROW)
         self.toggles = []
         for i, row in enumerate(self.rows):
-            b = Button((self.panel.right - 190, self.panel.y + 40 + i * 140, 150, 48), "", row[3], T.ACCENT, size=17)
+            b = Button((self.panel.right - 190, self.panel.y + 30 + i * self.ROW, 150, 48), "", row[3], T.ACCENT,
+                       size=17)
             self.toggles.append(b)
-        self.toggles[2].enabled = app.display is not None
+        self.toggles[2].enabled = self.toggles[3].enabled = sound.available()
+        self.toggles[4].enabled = app.display is not None
         back = Button((T.W // 2 - 110, T.H - 120, 220, 52), "Done", app.to_menu, T.ACCENT,
                       hotkeys=(pygame.K_ESCAPE, pygame.K_RETURN), primary=True)
         self.buttons = self.toggles + [back]
@@ -699,21 +723,32 @@ class SettingsScene(Scene):
         s[key] = not s.get(key, True)
         self.app.profile.save()
 
+    def _volume(self, key):
+        s = self.app.profile.settings
+        s[key] = next((v for v in VOLUMES if v > s[key] + 0.01), 0.0)
+        sound.set_volumes(s["sfx_volume"], s["music_volume"])
+        self.app.profile.save()
+
     def update(self, dt):
         super().update(dt)
         for b, row in zip(self.toggles, self.rows):
             on = row[2]()
-            b.label = row[4][0] if on else row[4][1]
-            b.primary = on
+            labels = row[4]
+            b.label = labels(on) if callable(labels) else labels[0] if on else labels[1]
+            b.primary = bool(on)
 
     def draw(self, surf):
         gfx.text(surf, "SETTINGS", (40, 30), 34, T.TEXT, bold=True)
         p = self.panel
         gfx.panel(surf, p, T.PANEL, T.BORDER, radius=20)
         for i, (title, desc, *_rest) in enumerate(self.rows):
-            y = p.y + 36 + i * 140
+            y = p.y + 26 + i * self.ROW
             if i:
-                pygame.draw.line(surf, T.BORDER, (p.x + 30, y - 22), (p.right - 30, y - 22), 1)
+                pygame.draw.line(surf, T.BORDER, (p.x + 30, y - 18), (p.right - 30, y - 18), 1)
             gfx.text(surf, title, (p.x + 40, y), 20, T.TEXT, bold=True)
-            gfx.text_block(surf, desc, (p.x + 40, y + 32), p.w - 300, 15, T.MUTED, spacing=1.3)
+            gfx.text_block(surf, desc, (p.x + 40, y + 30), p.w - 300, 15, T.MUTED, spacing=1.3)
         super().draw(surf)
+
+
+def _volume_label(v):
+    return f"{round(v * 100)}%" if v > 0 else "Off"

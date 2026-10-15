@@ -52,6 +52,16 @@ Your progress is saved to `~/.puzzleth/profile.json`.
 Everything works with a mouse or touch screen: on-screen keypads, Confirm, Give up and Pause
 buttons appear where a keyboard would otherwise be needed.
 
+**Sound.** Digit Span reads the digits out loud, one per second, as in a real session. Timers tick
+in their last five seconds, and right/wrong chimes play only when feedback is on, so the full
+assessment never gives anything away. Settings has separate volumes for sound effects and music.
+
+**Your own music and sounds.** Put `.mp3`, `.ogg` or `.wav` files in `puzzleth/music/` and they
+play in a shuffled loop. To change any sound effect or the spoken digits, add a file with the same
+name to `puzzleth/sounds/`; [puzzleth/sounds/README.md](puzzleth/sounds/README.md) lists every
+sound and when it plays. On the desktop you can use `~/.puzzleth/music/` and `~/.puzzleth/sounds/`
+instead, leaving the game's own folders untouched.
+
 **Keys:** Enter starts the full assessment, D opens the daily challenge, L opens Learn, F11
 toggles fullscreen, and Esc pauses during a subtest. Each subtest's intro screen shows its own
 controls.
@@ -114,6 +124,7 @@ Puzzles and multi-step word problems.
 ```sh
 python3 -m unittest discover -s tests   # or: nix-shell --run "python3 -m unittest discover -s tests"
 python3 tools/screenshots.py            # regenerate the images in docs/screenshots
+tools/make_sounds.py --voice en_US-ljspeech-high.onnx   # regenerate puzzleth/sounds (needs ffmpeg, piper)
 ```
 
 **Web version.** [pygbag](https://pygame-web.github.io) compiles the same code to WebAssembly.
@@ -123,6 +134,9 @@ pip install pygbag==0.9.2
 tools/build_web.sh --serve   # try it at http://localhost:8000
 tools/build_web.sh           # static site in build/web/, ready for any web host
 ```
+
+The build converts any `.mp3` and `.wav` files in `puzzleth/sounds/` and `puzzleth/music/` to
+`.ogg`, which every browser plays, so it needs `ffmpeg` if you've added some.
 
 The GitHub Actions workflow in `.github/workflows/web.yml` runs the tests, then builds and
 publishes the site to GitHub Pages on every push to `main`. To turn it on, open the repository's
@@ -137,4 +151,6 @@ that daily puzzles are identical for every player.
 
 [MIT](LICENSE). The bundled fonts, [Inter](https://github.com/rsms/inter) and
 [JetBrains Mono](https://github.com/JetBrains/JetBrainsMono), are under the SIL Open Font
-License (see `puzzleth/fonts/`). The web page template is adapted from pygbag's (MIT).
+License (see `puzzleth/fonts/`). The web page template is adapted from pygbag's (MIT). The sound
+effects are synthesized by `tools/make_sounds.py`, and the spoken digits were made with
+[Piper](https://github.com/rhasspy/piper)'s LJSpeech voice, whose recordings are public domain.

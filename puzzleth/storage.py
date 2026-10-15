@@ -10,7 +10,7 @@ from . import web
 WEB_KEY = "puzzleth.profile"
 
 
-def _path():
+def profile_path():
     base = os.environ.get("PUZZLETH_HOME")
     return Path(base) if base else Path.home() / ".puzzleth" / "profile.json"
 
@@ -22,12 +22,12 @@ def _legacy_path():
 
 def _default():
     return {"subtests": {}, "batteries": [], "ratings": {}, "daily": {},
-            "settings": {"feedback": True, "show_scores": True}}
+            "settings": {"feedback": True, "show_scores": True, "sfx_volume": 0.75, "music_volume": 0.5}}
 
 
 class Profile:
     def __init__(self):
-        self.path = None if web.IS_WEB else _path()
+        self.path = None if web.IS_WEB else profile_path()
         self.data = _default()
         try:
             if web.IS_WEB:
