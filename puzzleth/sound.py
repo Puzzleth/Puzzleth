@@ -24,8 +24,8 @@ EXTS = (".ogg", ".wav", ".mp3")
 USER_FIRST = {".wav": 0, ".mp3": 1, ".ogg": 2}
 MUSIC_END = pygame.USEREVENT + 7
 DUCK = 0.25  # music volume while digits are being spoken
-FADE_IN = 0.0  # seconds of fade at the start of every song
-FADE_OUT = 0.0  # ... and at its end
+FADE_IN = 4.0  # seconds of fade at the start of every song
+FADE_OUT = 6.0  # ... and at its end
 
 # per-sound loudness (0..1), on top of the "Sound effects" setting
 LEVELS = {
