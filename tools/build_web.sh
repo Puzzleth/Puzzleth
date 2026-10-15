@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Build the browser version of Puzzleth into build/web/ (a static site: host it anywhere).
-#   pip install pygbag==0.9.2
+#   pip install pygbag==0.9.2 fonttools
 #   tools/build_web.sh            # build only
 #   tools/build_web.sh --serve    # build and try it at http://localhost:8000
 set -euo pipefail
@@ -14,15 +14,39 @@ cp -r puzzleth/. build/Puzzleth/puzzleth/
 find build/Puzzleth -name __pycache__ -prune -exec rm -rf {} +
 
 # browsers play .ogg most reliably, so added .wav/.mp3 sounds and music are converted (a converted
-# file replaces a bundled .ogg of the same name, as it would on the desktop)
+# file replaces a bundled .ogg of the same name, as it would on the desktop). Music only plays in
+# the background, so it is made smaller (about 96 kbit/s) to stream well on slow connections.
 while IFS= read -r -d '' f; do
+  case "$f" in */music/*) q=2 ;; *) q=4 ;; esac
   if command -v ffmpeg >/dev/null 2>&1; then
-    ffmpeg -y -loglevel error -i "$f" -vn -c:a libvorbis -q:a 4 "${f%.*}.ogg" && rm "$f"
+    ffmpeg -y -loglevel error -i "$f" -vn -c:a libvorbis -q:a "$q" "${f%.*}.ogg" && rm "$f"
   else
     echo "warning: ffmpeg not found, $f is left as it is and may not play in every browser" >&2
   fi
 done < <(find build/Puzzleth/puzzleth/sounds build/Puzzleth/puzzleth/music -type f \
            \( -iname '*.wav' -o -iname '*.mp3' \) -print0)
+
+# Everything in the game's package is downloaded before it can start, so keep that small:
+# - the music moves out of it to music/ beside the page (pygbag copies static/ there as it is),
+#   listed in streamed.txt, and each song is streamed only when it starts playing (puzzleth/sound.py)
+mkdir -p build/Puzzleth/static/music
+: > build/Puzzleth/puzzleth/music/streamed.txt
+while IFS= read -r -d '' f; do
+  mv "$f" build/Puzzleth/static/music/
+  basename "$f" >> build/Puzzleth/puzzleth/music/streamed.txt
+done < <(find build/Puzzleth/puzzleth/music -maxdepth 1 -type f \
+           \( -iname '*.ogg' -o -iname '*.wav' -o -iname '*.mp3' \) -print0 | sort -z)
+# - the fonts keep only the letters and symbols the game can show (pip install fonttools), which
+#   more than halves them
+if command -v pyftsubset >/dev/null 2>&1; then
+  for f in build/Puzzleth/puzzleth/fonts/*.ttf; do
+    pyftsubset "$f" --output-file="$f.sub" --layout-features='*' \
+      --unicodes='U+0020-007E,U+00A0-024F,U+2000-206F,U+20AC,U+2190-21FF,U+2200-22FF,U+25A0-25FF'
+    mv "$f.sub" "$f"
+  done
+else
+  echo "warning: pyftsubset not found (pip install fonttools), the fonts are bundled whole" >&2
+fi
 
 args=(--template "$PWD/tools/web/puzzleth.tmpl" --icon "$PWD/tools/web/favicon.png" --title Puzzleth --app_name puzzleth --ume_block 0 build/Puzzleth)
 if [[ "${1:-}" == "--serve" ]]; then

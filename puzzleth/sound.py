@@ -14,6 +14,7 @@ Without an audio device everything here silently does nothing.
 import os
 import random
 import threading
+from urllib.parse import quote
 
 import pygame
 
@@ -23,6 +24,8 @@ PKG = os.path.dirname(os.path.abspath(__file__))
 EXTS = (".ogg", ".wav", ".mp3")
 USER_FIRST = {".wav": 0, ".mp3": 1, ".ogg": 2}
 MUSIC_END = pygame.USEREVENT + 7
+# written by tools/build_web.sh, which serves the music beside the page instead of packing it
+STREAMED = os.path.join(PKG, "music", "streamed.txt")
 DUCK = 0.25  # music volume while digits are being spoken
 FADE_IN = 4.0  # seconds of fade at the start of every song
 FADE_OUT = 6.0  # ... and at its end
@@ -43,6 +46,7 @@ _sfx = 0.75
 _music = 0.5
 _ducked = False
 _tracks = []
+_streaming = False  # web build: _tracks are URLs, played by web.stream_music
 _queue = []
 _current = None  # the music file loaded now
 _started = 0  # pygame.time.get_ticks() when it started playing
@@ -108,7 +112,13 @@ def _load_sounds():
 
 
 def _find_tracks():
+    global _streaming
     _tracks.clear()
+    _streaming = web.IS_WEB and os.path.isfile(STREAMED)
+    if _streaming:  # so the game starts without waiting for songs it may never play
+        with open(STREAMED, encoding="utf-8") as f:
+            _tracks.extend("music/" + quote(n) for n in f.read().splitlines() if n)
+        return
     for d in folders("music"):
         if os.path.isdir(d):
             _tracks.extend(
@@ -145,7 +155,11 @@ def set_volumes(sfx, music):
 
 
 def _apply_volume():
-    pygame.mixer.music.set_volume(_music * (DUCK if _ducked else 1.0) * _fade)
+    v = _music * (DUCK if _ducked else 1.0) * _fade
+    if _streaming:
+        web.music_volume(v)
+    else:
+        pygame.mixer.music.set_volume(v)
 
 
 def duck(on):
@@ -159,7 +173,10 @@ def duck(on):
 
 def _stop_music():
     global _current
-    if _current:
+    if _current and _streaming:
+        web.stop_music()
+        _current = None
+    elif _current:
         pygame.mixer.music.stop()
         _current = None
         if web.IS_WEB:
@@ -173,6 +190,11 @@ def _next_track():
         if len(_tracks) > 1 and _queue[-1] == _current:  # no song twice in a row
             _queue.insert(0, _queue.pop())
     path = _queue.pop()
+    if _streaming:  # the next click, tap or key press starts it if the browser won't yet
+        web.stream_music(path)
+        _current, _started, _fade = path, pygame.time.get_ticks(), 0.0
+        _apply_volume()
+        return
     try:
         pygame.mixer.music.load(path)
         _current, _started, _fade = path, pygame.time.get_ticks(), 0.0

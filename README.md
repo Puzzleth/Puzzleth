@@ -28,8 +28,8 @@ puzzles keep coming after the real test runs out.
 computers, with nothing to install. Hold your phone sideways. Puzzleth saves your progress in that
 browser. On a phone, "Add to Home Screen" gives it its own icon and more room on screen.
 
-The first load downloads about 15 MB (a Python runtime that runs in the browser). Later visits are
-faster.
+The first load downloads about 13 MB, nearly all of it a Python runtime that runs in the browser.
+Music streams in as it plays. Later visits are faster.
 
 ## Run it on your computer
 
@@ -130,13 +130,15 @@ tools/make_sounds.py --voice en_US-ljspeech-high.onnx   # regenerate puzzleth/so
 **Web version.** [pygbag](https://pygame-web.github.io) compiles the same code to WebAssembly.
 
 ```sh
-pip install pygbag==0.9.2
+pip install pygbag==0.9.2 fonttools
 tools/build_web.sh --serve   # try it at http://localhost:8000
 tools/build_web.sh           # static site in build/web/, ready for any web host
 ```
 
 The build converts any `.mp3` and `.wav` files in `puzzleth/sounds/` and `puzzleth/music/` to
-`.ogg`, which every browser plays, so it needs `ffmpeg` if you've added some.
+`.ogg`, which every browser plays, so it needs `ffmpeg` if you've added some. To keep the first load small,
+the music is served beside the page and streamed when a song starts rather than packed into the
+game's download, and the fonts are cut down to the characters the game uses.
 
 The GitHub Actions workflow in `.github/workflows/web.yml` runs the tests, then builds and
 publishes the site to GitHub Pages on every push to `main`. To turn it on, open the repository's
