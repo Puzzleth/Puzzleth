@@ -20,15 +20,59 @@ def _legacy_path():
     return None if os.environ.get("PUZZLETH_HOME") else Path.home() / ".brain_puzzlerer" / "profile.json"
 
 
-def _default():
+NAME_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+NAME_LEN = 8
+MAX_PLAYERS = 8
+# settings each player chooses for themselves; the rest (volumes, fullscreen, ...) belong to the device
+PLAYER_SETTINGS = ("feedback", "show_scores", "expect_seen")
+
+
+def _default_settings():
+    return {"sfx_volume": 0.75, "music_volume": 0.5}
+
+
+def _default_player():
     return {"subtests": {}, "batteries": [], "ratings": {}, "daily": {},
-            "settings": {"feedback": True, "show_scores": True, "sfx_volume": 0.75, "music_volume": 0.5}}
+            "settings": {"feedback": True, "show_scores": True}, "seen": 0}
+
+
+def clean_name(name):
+    """A player name as the arcade-style entry allows it: capitals and digits, at most NAME_LEN."""
+    return "".join(c for c in str(name).upper() if c in NAME_CHARS)[:NAME_LEN]
+
+
+class _Settings:
+    """The device's settings, except PLAYER_SETTINGS, which are read from and written to the
+    current player's own settings."""
+
+    def __init__(self, device, profile):
+        self.device = device
+        self.profile = profile
+
+    def _own(self, key):
+        return self.profile.data["settings"] if key in PLAYER_SETTINGS else self.device
+
+    def __getitem__(self, key):
+        return self._own(key)[key]
+
+    def __setitem__(self, key, value):
+        self._own(key)[key] = value
+
+    def __contains__(self, key):
+        return key in self._own(key)
+
+    def get(self, key, default=None):
+        return self._own(key).get(key, default)
 
 
 class Profile:
+    """Everyone who plays on this device, each under the name they chose. ``data`` is the current
+    player's progress; until somebody has entered a name it belongs to no one (and progress saved
+    by versions without players lands there, to be adopted by the first name entered)."""
+
     def __init__(self):
         self.path = None if web.IS_WEB else profile_path()
-        self.data = _default()
+        self.root = {"current": None, "settings": _default_settings(), "players": {}, "unnamed": _default_player()}
         try:
             if web.IS_WEB:
                 # browsers: the page's localStorage survives reloads; the virtual file system doesn't
@@ -40,30 +84,105 @@ class Profile:
                     src = legacy   # carried over on the next save
                 with open(src) as f:
                     loaded = json.load(f)
-            self.data.update(loaded)
-            for k, v in _default().items():   # profiles from older versions
-                self.data.setdefault(k, v)
-            for k, v in _default()["settings"].items():
-                self.data["settings"].setdefault(k, v)
+            self._load(loaded)
         except (OSError, ValueError):
             pass
+        self.settings = _Settings(self.root["settings"], self)
+        self.data = self._player_data()
+
+    def _load(self, loaded):
+        if "players" not in loaded:   # saved before there were players: all of it was one person's
+            settings = loaded.pop("settings", {})
+            own = {k: settings.pop(k) for k in PLAYER_SETTINGS if k in settings}
+            loaded = {"settings": settings, "unnamed": {**loaded, "settings": own}}
+        self.root.update(loaded)
+        for k, v in _default_settings().items():   # profiles from older versions
+            self.root["settings"].setdefault(k, v)
+        for data in [*self.root["players"].values(), self.root.get("unnamed") or {}]:
+            for k, v in _default_player().items():
+                data.setdefault(k, v)
+            for k, v in _default_player()["settings"].items():
+                data["settings"].setdefault(k, v)
+        if self.root["current"] not in self.root["players"]:
+            self.root["current"] = None
+
+    def _player_data(self):
+        cur = self.root["current"]
+        if cur:
+            return self.root["players"][cur]
+        if not self.root.get("unnamed"):
+            self.root["unnamed"] = _default_player()
+        return self.root["unnamed"]
 
     def save(self):
         if web.IS_WEB:
-            web.save(WEB_KEY, json.dumps(self.data))
+            web.save(WEB_KEY, json.dumps(self.root))
             return
         try:
             self.path.parent.mkdir(parents=True, exist_ok=True)
             tmp = self.path.with_suffix(".tmp")
             with open(tmp, "w") as f:
-                json.dump(self.data, f, indent=1)
+                json.dump(self.root, f, indent=1)
             tmp.replace(self.path)
         except OSError:
             pass
 
+    # ------------------------------------------------------------ players
     @property
-    def settings(self):
-        return self.data["settings"]
+    def current(self):
+        """The current player's name, or None before anyone has entered one."""
+        return self.root["current"]
+
+    def players(self):
+        """Every player's name, the most recently chosen first."""
+        ps = self.root["players"]
+        return sorted(ps, key=lambda n: -ps[n].get("seen", 0))
+
+    def player(self, name):
+        return self.root["players"].get(name)
+
+    def can_add(self, name):
+        """None if ``name`` can be added as a new player, else why not."""
+        name = clean_name(name)
+        if not name:
+            return "Enter at least one letter"
+        if name in self.root["players"]:
+            return f"{name} is already a player here"
+        if len(self.root["players"]) >= MAX_PLAYERS:
+            return f"There can be at most {MAX_PLAYERS} players"
+        return None
+
+    def add_player(self, name):
+        """Add a player and switch to them. The first one takes over any progress made before names."""
+        name = clean_name(name)
+        if self.can_add(name):
+            return False
+        unnamed = self.root.get("unnamed")
+        self.root["players"][name] = unnamed if unnamed else _default_player()
+        self.root["unnamed"] = None
+        self.switch(name)
+        return True
+
+    def switch(self, name):
+        if name not in self.root["players"]:
+            return
+        self.root["current"] = name
+        self.data = self.root["players"][name]
+        self.data["seen"] = time.time()
+        self.save()
+
+    def remove_player(self, name):
+        """Delete a player and all of their progress; switches to whoever played last if it was the current one."""
+        if self.root["players"].pop(name, None) is None:
+            return
+        if self.root["current"] == name:
+            rest = self.players()
+            self.root["current"] = None
+            if rest:
+                self.switch(rest[0])
+            else:
+                self.data = self._player_data()
+        self.save()
 
     def record_subtest(self, code, raw, scaled, details):
         entry = self.data["subtests"].setdefault(code, {"history": [], "best": 0})
