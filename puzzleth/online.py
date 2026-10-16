@@ -62,7 +62,7 @@ class Request:
         import urllib.error
         import urllib.request
         # Cloudflare turns away Python's own User-Agent ("error code: 1010"), so the game names itself
-        headers = {"User-Agent": "Puzzleth (+https://github.com/VN0V4/Puzzleth)"}
+        headers = {"User-Agent": "Puzzleth (+https://github.com/Puzzleth/Puzzleth)"}
         if payload:
             headers["Content-Type"] = "application/json"
         if token:

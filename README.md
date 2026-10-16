@@ -26,7 +26,7 @@ puzzles keep coming after the real test runs out.
 
 ## Play in your browser
 
-**[vn0v4.github.io/Puzzleth](https://vn0v4.github.io/Puzzleth/)** works on phones, tablets and
+**[puzzleth.github.io/Puzzleth](https://puzzleth.github.io/Puzzleth/)** works on phones, tablets and
 computers, with nothing to install. Hold your phone sideways. Puzzleth saves your progress in that
 browser. On a phone, "Add to Home Screen" gives it its own icon and more room on screen.
 
@@ -38,14 +38,14 @@ you're already playing.
 ## Play offline on Windows
 
 Download `Puzzleth-<version>-windows.exe` from the
-[Releases page](https://github.com/VN0V4/Puzzleth/releases) and run it. It needs no Python or
+[Releases page](https://github.com/Puzzleth/Puzzleth/releases) and run it. It needs no Python or
 install, and plays offline (the leaderboard needs a connection). It isn't code-signed, so Windows
 may warn about an unknown publisher: choose "More info", then "Run anyway".
 
 ## Run it on your computer
 
 ```sh
-git clone https://github.com/VN0V4/Puzzleth.git
+git clone https://github.com/Puzzleth/Puzzleth.git
 cd Puzzleth
 ./puzzle
 ```
@@ -208,7 +208,11 @@ that daily puzzles are identical for every player.
 
 ## License
 
-[MIT](LICENSE). The bundled fonts, [Inter](https://github.com/rsms/inter) and
+Copyright (c) 2026 Luca Silviu Huci. **All rights reserved.** This is proprietary software: you're welcome to
+play the official builds above, but no permission is granted to copy, modify, re-host or
+distribute the game or its code. See [LICENSE](LICENSE).
+
+The bundled fonts, [Inter](https://github.com/rsms/inter) and
 [JetBrains Mono](https://github.com/JetBrains/JetBrainsMono), are under the SIL Open Font
 License (see `puzzleth/fonts/`). The web page template is adapted from pygbag's (MIT). The sound
 effects are synthesized by `tools/make_sounds.py`, and the spoken digits were made with
@@ -216,4 +220,4 @@ effects are synthesized by `tools/make_sounds.py`, and the spoken digits were ma
 
 **Music.** All music is made by [**andrii g.**](https://pixabay.com/users/andriig-54059306/) on Pixabay, in `puzzleth/music/`, is used under the
 [Pixabay Content License](https://pixabay.com/service/license-summary/). It isn't covered by this
-project's MIT license.
+project's license.

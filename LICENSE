@@ -1,0 +1,35 @@
+Copyright (c) 2026 Luca Silviu Huci. All rights reserved.
+
+This software, including its source code, assets, documentation and every
+other file in this repository (the "Software"), is proprietary and
+confidential. It is the exclusive property of the copyright holder.
+
+No license or right is granted to any person, by implication, estoppel or
+otherwise. Without the prior written permission of the copyright holder, you
+may not use, copy, modify, merge, publish, distribute, sublicense, sell,
+host, run as a service, reverse engineer, or create derivative works of the
+Software, in whole or in part, nor use it to train or evaluate machine
+learning models.
+
+The one exception: anyone may play the game for personal, non-commercial
+purposes through the official builds published by the copyright holder (the
+web version at puzzleth.github.io/Puzzleth and the executables on the official
+GitHub Releases page). This does not permit redistributing, mirroring,
+re-hosting or modifying those builds, and may be withdrawn at any time.
+
+Being able to view or access the Software (for example, on GitHub) does not
+grant any of the rights above. Any use beyond that permitted by applicable
+law requires a separate written agreement with the copyright holder.
+
+Third-party components bundled with the Software remain under their own
+licenses and are not covered by this notice:
+
+  - Inter and JetBrains Mono fonts (puzzleth/fonts/): SIL Open Font License,
+    see the *-OFL.txt files in that directory.
+  - The web page template adapted from pygbag: MIT License.
+  - Music in puzzleth/music/ by andrii g.: Pixabay Content License.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED. IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM,
+DAMAGES OR OTHER LIABILITY ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+SOFTWARE OR ITS USE.
