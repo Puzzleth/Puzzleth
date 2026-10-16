@@ -1,7 +1,11 @@
 """The online leaderboard (its server is in server/). Players join it one by one; until they do, nothing
 about them is sent anywhere. Requests never hold up the game: they run in the background (a thread
 on the desktop, the page's fetch() in a browser), and ``poll()``, called every frame, hands their
-answers back to the game."""
+answers back to the game.
+
+Joining also backs a player's progress up on the server, so their recovery code can move them to
+another device (``restore``)."""
+import hashlib
 import json
 import os
 import threading
@@ -106,6 +110,8 @@ def describe(req):
     if req.status == 0:
         return "Couldn't reach the leaderboard. Check your connection and try again."
     if req.status == 429:
+        if isinstance(req.data, dict) and "code" in str(req.data.get("error")):
+            return "Too many wrong codes from here today. Try again tomorrow."
         return "Too many new players from here today. Try again tomorrow."
     error = req.data.get("error") if isinstance(req.data, dict) else None
     return f"The leaderboard said no ({error or req.status})."
@@ -113,7 +119,8 @@ def describe(req):
 
 class Online:
     """Each player's place on the leaderboard. A player who joined has ``data["online"]``: their
-    ``id``, ``tag``, secret ``token``, and ``sent``, how many puzzles each posted rating was after."""
+    ``id``, ``tag``, secret ``token``, ``sent``, how many puzzles each posted rating was after, their
+    recovery ``code`` once known, and ``backup``, a hash of the progress last backed up."""
 
     def __init__(self, profile):
         self.profile = profile
@@ -122,6 +129,7 @@ class Online:
         self.busy = set()     # (player, code) being posted
         self.joining = None   # the player whose join is under way
         self.error = None
+        self.backing_up = {}  # player -> the hash of the backup being sent
 
     def enabled(self):
         return enabled()
@@ -154,7 +162,9 @@ class Online:
             if req.ok and data is not None and isinstance(req.data, dict) and req.data.get("token"):
                 data["online"] = {k: req.data[k] for k in ("id", "tag", "token")}
                 data["online"]["sent"] = {}
+                data["online"]["code"] = req.data.get("code")
                 self.profile.save()
+                self.backup(name)
                 self.push(name, then)
             else:
                 self.error = describe(req)
@@ -185,6 +195,83 @@ class Online:
                 if req.ok or req.status == 401:   # 401: it was already gone
                     self.profile.unforget_online(token)
             self.request("DELETE", "/players/me", token=token, then=gone)
+
+    # ------------------------------------------------------------ moving to another device
+    def sync(self, name=None):
+        """Post the player's new ratings and back up their progress, if they joined."""
+        self.push(name)
+        self.backup(name)
+
+    def backup(self, name=None):
+        """Send the player's progress to the server if it changed since it was last sent."""
+        name = name or self.profile.current
+        acct = self.account(name)
+        if not self.enabled() or not acct:
+            return
+        data = self.profile.backup_data(name)
+        digest = hashlib.sha256(json.dumps(data, sort_keys=True).encode()).hexdigest()
+        if digest in (acct.get("backup"), self.backing_up.get(name)):
+            return
+        self.backing_up[name] = digest
+
+        def sent(req):
+            self.backing_up.pop(name, None)
+            acct = self.account(name)
+            if acct is None:
+                return
+            if req.ok:
+                acct["backup"] = digest
+            elif req.status == 401:   # the server no longer knows them, or they moved to another device
+                self.profile.player(name)["online"] = None
+            self.profile.save()
+
+        self.request("PUT", "/backup", data, token=acct["token"], then=sent)
+
+    def new_code(self, then=None):
+        """Ask for a new recovery code for the current player (the old one stops working). ``then`` is
+        called with the request once it's answered."""
+        name = self.profile.current
+        acct = self.account(name)
+        if not self.enabled() or not acct:
+            return
+
+        def got(req):
+            acct = self.account(name)
+            if acct is not None and req.ok and isinstance(req.data, dict) and req.data.get("code"):
+                acct["code"] = req.data["code"]
+                self.profile.save()
+            elif acct is not None and req.status == 401:
+                self.profile.player(name)["online"] = None
+                self.profile.save()
+            if then:
+                then(req)
+
+        self.request("POST", "/players/me/code", token=acct["token"], then=got)
+
+    def restore(self, code, then):
+        """Bring a player here from another device with their recovery code. ``then`` is called with
+        None once they're the current player, or with why they couldn't be restored."""
+        def got(req):
+            d = req.data if isinstance(req.data, dict) else {}
+            if not (req.ok and d.get("token") and d.get("name")):
+                if req.status == 404:
+                    return then("No player has that code. Check it and try again.")
+                return then(describe(req))
+            ratings = {r["code"]: r for r in d.get("ratings") or [] if isinstance(r, dict) and "code" in r}
+            account = {"id": d["id"], "tag": d["tag"], "token": d["token"], "code": d.get("code"),
+                       "sent": {c: r["played"] for c, r in ratings.items()}}
+            why = self.profile.restore_player(d["name"], d.get("data"), account)
+            if why:
+                return then(why)
+            mine = self.profile.data["ratings"]
+            for c, r in ratings.items():   # the leaderboard may know of puzzles played after the last backup
+                if r["played"] > mine.get(c, {}).get("played", 0):
+                    mine[c] = {k: r[k] for k in ("rating", "played", "peak")}
+            self.profile.save()
+            self.sync()
+            then(None)
+
+        self.request("POST", "/restore", {"code": code}, then=got)
 
     # ------------------------------------------------------------ ratings
     def push(self, name=None, then=None):

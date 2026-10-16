@@ -54,5 +54,14 @@ if [[ "${1:-}" == "--serve" ]]; then
 else
   python3 -m pygbag --build "${args[@]}"
   mv build/Puzzleth/build/web build/web
-  echo "Built build/web/ — upload that folder to any static web host."
+  # Browsers keep the page and the game's download for a while, phones for longer. Naming the download
+  # after its contents means a new page never starts an old game, and version.txt (always asked for past
+  # the caches) lets an open page see that a newer build is out (puzzleth_check_version in the template).
+  build_id=$(python3 -c 'import hashlib, sys; print(hashlib.sha256(open(sys.argv[1], "rb").read()).hexdigest()[:12])' \
+             build/web/puzzleth.apk)
+  mv build/web/puzzleth.apk "build/web/puzzleth-$build_id.apk"
+  perl -pi -e "s/puzzleth\.apk/puzzleth-$build_id.apk/g; s/\@PUZZLETH_BUILD\@/$build_id/g" build/web/index.html
+  echo "$build_id" > build/web/version.txt
+  grep -q "puzzleth-$build_id.apk" build/web/index.html || { echo "error: index.html doesn't load the game" >&2; exit 1; }
+  echo "Built build/web/ (build $build_id) — upload that folder to any static web host."
 fi

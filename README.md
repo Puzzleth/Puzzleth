@@ -1,5 +1,7 @@
 # Puzzleth
 
+**v0.0.1 (pre-alpha)**
+
 A puzzle game built on the structure and rules of a real intelligence test, the WAIS-IV. Every
 puzzle is generated fresh, your skills grow as a constellation of skill-point rings, and harder
 puzzles keep coming after the real test runs out.
@@ -29,7 +31,16 @@ computers, with nothing to install. Hold your phone sideways. Puzzleth saves you
 browser. On a phone, "Add to Home Screen" gives it its own icon and more room on screen.
 
 The first load downloads about 13 MB, nearly all of it a Python runtime that runs in the browser.
-Music streams in as it plays. Later visits are faster.
+Music streams in as it plays. Later visits are faster. When a new version comes out, the page loads
+it the next time you open it, or offers it with an **Update available** button on the menu if
+you're already playing.
+
+## Play offline on Windows
+
+Download `Puzzleth-<version>-windows.exe` from the
+[Releases page](https://github.com/VN0V4/Puzzleth/releases) and run it. It needs no Python or
+install, and plays offline (the leaderboard needs a connection). It isn't code-signed, so Windows
+may warn about an unknown publisher: choose "More info", then "Run anyway".
 
 ## Run it on your computer
 
@@ -58,6 +69,13 @@ menu, or B). Nothing is sent until they do. Then their name and puzzle ratings a
 every rated set, and they're ranked once they've played ten puzzles of a subtest. Players with the
 same name are told apart by a short tag such as `#K3QX`. Leaving the leaderboard, or removing the
 player, deletes their ratings from the server.
+
+**Moving to another device.** Joining the leaderboard also backs up that player's progress and
+settings on the server. Leaderboard > **Move to another device** shows their recovery code, such as
+`K3QX-7HMP-W2ZA`. On the new device, choose **Restore a player** (when it asks for a name, or on
+the players screen) and enter the code. The player moves there with their progress and leaderboard
+place. The old device keeps its copy of the progress but stops posting to the leaderboard. Anyone
+with the code can take the player over, so keep it private, or get a new code from the same screen.
 
 Everything works with a mouse or touch screen: on-screen keypads, Confirm, Give up and Pause
 buttons appear where a keyboard would otherwise be needed.
@@ -152,13 +170,29 @@ The build converts any `.mp3` and `.wav` files in `puzzleth/sounds/` and `puzzle
 the music is served beside the page and streamed when a song starts rather than packed into the
 game's download, and the fonts are cut down to the characters the game uses.
 
+Each build names the game's download after its contents and writes `version.txt`. Browsers can't
+then start an old game from a new page, and an open page can see that a newer build is out.
+
 The GitHub Actions workflow in `.github/workflows/web.yml` runs the tests, then builds and
 publishes the site to GitHub Pages on every push to `main`. To turn it on, open the repository's
 Settings > Pages and set Source to "GitHub Actions".
 
+**Windows executable and releases.** The version is set in `puzzleth/__init__.py` and shown on the
+menu. To release it, push a matching tag. `.github/workflows/windows.yml` then builds the `.exe`
+with [PyInstaller](https://pyinstaller.org), checks that it starts, and publishes it on the
+Releases page.
+
+```sh
+git tag v0.0.1 && git push origin v0.0.1
+```
+
+To build it yourself on Windows, run `pip install pyinstaller pillow`, then the `pyinstaller`
+command from that workflow.
+
 **Leaderboard server.** `server/` holds the online leaderboard, a Cloudflare Worker with a D1
 database. [server/README.md](server/README.md) explains how to deploy it (free, a few commands)
-and then point the game at it through `SERVER_URL` in `puzzleth/online.py`. Until that's set,
+and then point the game at it through `SERVER_URL` in `puzzleth/online.py`. After updating the
+server's code, run `schema.sql` again and redeploy (see that README). Until that's set,
 the game hides the leaderboard. To try it without Cloudflare, run `npm run local` in `server/`
 and start the game with `PUZZLETH_SERVER=http://localhost:8787 ./puzzle`.
 
