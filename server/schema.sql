@@ -22,9 +22,19 @@ CREATE TABLE IF NOT EXISTS ratings (
 );
 CREATE INDEX IF NOT EXISTS ratings_board ON ratings (code, rating DESC);
 
--- Recent sign-ups by (hashed) address, to limit how fast new players can be made.
+-- Recent sign-ups (and wrong recovery codes) by hashed address, to limit how fast new players can be
+-- made and codes guessed.
 CREATE TABLE IF NOT EXISTS signups (
   ip_hash TEXT NOT NULL,
   ts INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS signups_ip ON signups (ip_hash, ts);
+
+-- Each player's progress, backed up by the game so they can restore it on another device with their
+-- recovery code. Like the token, the code stays with the player; only its SHA-256 hash is kept here.
+CREATE TABLE IF NOT EXISTS backups (
+  player_id TEXT PRIMARY KEY REFERENCES players(id) ON DELETE CASCADE,
+  code_hash TEXT UNIQUE,
+  data TEXT,                      -- the game's own JSON, as it sent it
+  updated INTEGER                 -- unix seconds
+);

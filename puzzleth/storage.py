@@ -22,6 +22,7 @@ def _legacy_path():
 
 NAME_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 NAME_LEN = 8
+CODE_CHARS = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ"   # recovery codes (no 0/O or 1/I to mix up), see online.py
 MAX_PLAYERS = 8
 # settings each player chooses for themselves; the rest (volumes, fullscreen, ...) belong to the device
 PLAYER_SETTINGS = ("feedback", "show_scores", "expect_seen")
@@ -190,6 +191,30 @@ class Profile:
             else:
                 self.data = self._player_data()
         self.save()
+
+    def backup_data(self, name):
+        """What a player's online backup holds: their progress and settings, without their token."""
+        data = self.root["players"][name]
+        return {k: v for k, v in data.items() if k not in ("online", "seen")}
+
+    def restore_player(self, name, data, account):
+        """Add a player restored from their online backup (``data``, None if nothing was backed up yet)
+        and switch to them. Returns why not, if they can't be added."""
+        name = clean_name(name)
+        mine = self.root["players"].get(name)
+        if mine is not None and (mine.get("online") or {}).get("id") != account["id"]:
+            return f"There's already a player called {name} here. Remove them first."
+        if mine is None and len(self.root["players"]) >= MAX_PLAYERS:
+            return f"There can be at most {MAX_PLAYERS} players"
+        player = _default_player()
+        for k, v in (data or {}).items():
+            if k in player and isinstance(v, type(player[k])):
+                player[k] = v
+        player["settings"] = {**_default_player()["settings"], **player["settings"]}
+        player["online"] = account
+        self.root["players"][name] = player
+        self.switch(name)
+        return None
 
     def forget_online(self, token):
         """Remember to delete a leaderboard player from the server (see online.Online.flush)."""

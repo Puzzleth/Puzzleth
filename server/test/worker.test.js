@@ -5,7 +5,7 @@ import { beforeEach, test } from "node:test";
 
 import { FakeD1 } from "../local/fake-d1.js";
 import worker from "../src/index.js";
-import { MAX_STEP, RANKED_AFTER, SIGNUPS_PER_DAY, checkRating } from "../src/rules.js";
+import { MAX_STEP, RANKED_AFTER, RESTORE_FAILS_PER_DAY, SIGNUPS_PER_DAY, checkRating } from "../src/rules.js";
 
 let env;
 let ip;
@@ -135,4 +135,50 @@ test("browsers' preflight requests are answered", async () => {
   const r = await worker.fetch(new Request("https://board.test/ratings/MR", { method: "OPTIONS" }), env);
   assert.equal(r.status, 204);
   assert.match(r.headers.get("Access-Control-Allow-Headers"), /Authorization/);
+});
+
+test("progress is backed up and restored with the recovery code", async () => {
+  const ana = await join("ANA");
+  assert.match(ana.code, /^[2-9A-Z]{4}-[2-9A-Z]{4}-[2-9A-Z]{4}$/);
+  await post(ana.token, "MR", 1200, 12);
+  const progress = { subtests: { MR: { history: [], best: 12 } }, daily: {} };
+  assert.equal((await call("PUT", "/backup", { token: ana.token, body: progress })).status, 200);
+  assert.equal((await call("PUT", "/backup", { token: "nope", body: progress })).status, 401);
+  assert.equal((await call("PUT", "/backup", { token: ana.token, body: [1, 2] })).status, 400);
+  // codes are typed in any case, with or without dashes
+  const r = await call("POST", "/restore", { body: { code: ana.code.replace(/-/g, "").toLowerCase() } });
+  assert.equal(r.status, 200);
+  assert.deepEqual([r.data.id, r.data.name, r.data.tag, r.data.code], [ana.id, "ANA", ana.tag, ana.code]);
+  assert.deepEqual(r.data.data, progress);
+  assert.deepEqual(r.data.ratings, [{ code: "MR", rating: 1200, played: 12, peak: 1200 }]);
+  // the new device takes over: the old token no longer works, the new one does
+  assert.equal((await post(ana.token, "MR", 1210, 13)).status, 401);
+  assert.equal((await post(r.data.token, "MR", 1210, 13)).status, 200);
+  // only the code's hash is kept
+  assert.equal(env.DB.db.prepare("SELECT COUNT(*) AS n FROM backups WHERE code_hash LIKE ?").get(
+    `%${ana.code.slice(0, 4)}%`).n, 0);
+});
+
+test("a player who joined before backups can get a code, and a new code retires the old", async () => {
+  const ana = await join("ANA");
+  env.DB.db.prepare("DELETE FROM backups").run();
+  const first = await call("POST", "/players/me/code", { token: ana.token });
+  assert.equal(first.status, 200);
+  const r = await call("POST", "/restore", { body: { code: first.data.code } });
+  assert.equal(r.data.data, null);   // nothing backed up yet
+  const second = (await call("POST", "/players/me/code", { token: r.data.token })).data.code;
+  assert.notEqual(second, first.data.code);
+  assert.equal((await call("POST", "/restore", { body: { code: first.data.code } })).status, 404);
+  assert.equal((await call("POST", "/restore", { body: { code: second } })).status, 200);
+});
+
+test("wrong recovery codes are limited per address, and leaving deletes the backup", async () => {
+  for (let i = 0; i < RESTORE_FAILS_PER_DAY; i++)
+    assert.equal((await call("POST", "/restore", { body: { code: "ABCD-EFGH-JKLM" }, from: "1.2.3.4" })).status, 404);
+  assert.equal((await call("POST", "/restore", { body: { code: "ABCD-EFGH-JKLM" }, from: "1.2.3.4" })).status, 429);
+  const ana = await join("ANA");
+  await call("PUT", "/backup", { token: ana.token, body: { daily: {} } });
+  assert.equal((await call("DELETE", "/players/me", { token: ana.token })).status, 204);
+  assert.equal(env.DB.db.prepare("SELECT COUNT(*) AS n FROM backups").get().n, 0);
+  assert.equal((await call("POST", "/restore", { body: { code: ana.code } })).status, 404);
 });

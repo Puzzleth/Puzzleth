@@ -343,6 +343,52 @@ function puzzleth_open_pending() {
 for (const ev of ["pointerup", "touchend", "keyup"])
     window.addEventListener(ev, puzzleth_open_pending, true)
 
+// Updates. Browsers keep the page and the game's download for a while (GitHub Pages lets them for 10
+// minutes), and a phone's Home Screen app can sit on an old page for days. tools/build_web.sh names each
+// build's download after its contents, so a fresh page always loads its own game, and writes the build's
+// name here and into version.txt. That is asked for past every cache: when the game hasn't started yet a
+// newer build is loaded straight away, later the menu offers it (puzzleth_update, see puzzleth/web.py).
+const puzzleth_build = "@PUZZLETH_BUILD@"
+var puzzleth_update = false
+var puzzleth_started = false   // set by the game once it runs
+
+function puzzleth_check_version() {
+    if (puzzleth_build.startsWith("@")) return   // tools/build_web.sh --serve
+    fetch("version.txt?t=" + Date.now(), {cache: "no-store"})
+        .then((r) => r.ok ? r.text() : "")
+        .then((latest) => {
+            latest = latest.trim()
+            if (!latest || latest === puzzleth_build) return
+            // once per build, in case a cache still hands out the old page for the new address
+            const tried = sessionStorage.getItem("puzzleth_reloaded") === latest
+            if (!puzzleth_started && !tried) puzzleth_reload(latest)
+            else puzzleth_update = true
+        })
+        .catch(() => {})
+}
+
+function puzzleth_reload(latest) {
+    // a new address can't be answered from a cache
+    sessionStorage.setItem("puzzleth_reloaded", latest || "")
+    window.onbeforeunload = null   // pygbag's asks "Are you sure you want to navigate away?"
+    const url = new URL(location.href)
+    url.searchParams.set("v", latest || Date.now())
+    location.replace(url.toString())
+}
+
+function puzzleth_set_started() {
+    puzzleth_started = true
+}
+
+function puzzleth_update_ready() {
+    return puzzleth_update
+}
+
+puzzleth_check_version()
+document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "visible") puzzleth_check_version()
+})
+
 // Requests to the online leaderboard (puzzleth/online.py). The game polls for each answer every frame
 // with puzzleth_fetch_result, so it never waits on the network.
 var puzzleth_answers = {}

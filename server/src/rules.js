@@ -12,6 +12,9 @@ export const NAME = /^[A-Z0-9]{1,8}$/;
 export const SECONDS_PER_PUZZLE = 2;   // nobody solves puzzles faster than this, on average
 export const SIGNUPS_PER_DAY = 20;     // per address
 export const TAG_CHARS = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
+export const CODE_LEN = 12;            // recovery codes: CODE_LEN of TAG_CHARS, 60 random bits
+export const MAX_BACKUP = 256 * 1024;  // characters of a player's backed-up progress
+export const RESTORE_FAILS_PER_DAY = 20;   // wrong recovery codes, per address
 
 /** Why a new rating can't be accepted, or null if it can. ``old`` is the stored row, if any. */
 export function checkRating(old, rating, played, now) {

@@ -4,13 +4,13 @@ import datetime
 
 import pygame
 
-from . import gfx, online, scoring, sound, web
+from . import gfx, online, scoring, sound, version_label, web
 from . import theme as T
 from .challenge import FLOOR, SET_LENGTH, daily_number
 from .content.learn import TOPICS
 from .display import mouse_pos
 from .skilltree import SkillTree
-from .storage import MAX_PLAYERS, NAME_CHARS, NAME_LEN
+from .storage import CODE_CHARS, MAX_PLAYERS, NAME_CHARS, NAME_LEN
 from .subtests import BY_CODE, ORDER
 from .widgets import Button
 
@@ -321,6 +321,11 @@ class MenuScene(Scene):
                 size=14,
             )
             self.buttons.append(self.donate_btn)
+        corner = max(b.rect.right for b in (self.about_btn, self.quit_btn) if b in self.buttons)
+        self.update_btn = Button((corner - 190, self.about_btn.rect.y - 48, 190, 38), "Update available",
+                                 web.load_update, T.GOLD, primary=True, size=15)
+        if web.update_ready():
+            self.buttons.append(self.update_btn)
         self._refresh()
 
     def _refresh(self):
@@ -349,6 +354,8 @@ class MenuScene(Scene):
         return False
 
     def update(self, dt):
+        if self.update_btn not in self.buttons and int(self.t + dt) != int(self.t) and web.update_ready():
+            self.buttons.append(self.update_btn)   # a newer web build is out: offer it instead of the version
         super().update(dt)
         self.hover = self.tree.hit(mouse_pos())
 
@@ -382,6 +389,9 @@ class MenuScene(Scene):
             T.DIM,
             anchor="center",
         )
+        if self.update_btn not in self.buttons:
+            gfx.text(surf, version_label(), (self.update_btn.rect.right, self.about_btn.rect.y - 8), 13, T.DIM,
+                     bold=True, anchor="bottomright")
         super().draw(surf)
         if self.hover:
             tree_tooltip(
@@ -403,13 +413,16 @@ class NameEntryScene(Scene):
     """Arcade-style name entry: type, tap the letter board, or pick each letter with Up/Down and
     lock it in with Right. Shown before the first game and for each new player."""
 
+    CHARS = NAME_CHARS
+    LENGTH = NAME_LEN
+    GROUP = None   # slots are drawn in groups of this many
     BOARD = [NAME_CHARS[i:i + 10] for i in range(0, 30, 10)] + [list(NAME_CHARS[30:]) + ["Del", "OK"]]
 
     def __init__(self, app):
         super().__init__(app)
         self.first = app.profile.current is None
         self.value = ""
-        self.pick = None   # index into NAME_CHARS of the letter being picked with Up/Down
+        self.pick = None   # index into CHARS of the letter being picked with Up/Down
         self.error = None
         self.flash = {}
         self.slots_y = 158 if T.compact else 250
@@ -423,12 +436,23 @@ class NameEntryScene(Scene):
                 w = key_w if len(label) == 1 else 2 * key_w + gap
                 self.keys.append((label, pygame.Rect(x, top + r * (key_h + gap), w, key_h)))
                 x += w + gap
+        self._add_buttons()
+
+    def _add_buttons(self):
+        if online.enabled():   # bring a player over from another device instead
+            self.buttons.append(Button((40, 14, 240, 52), "Restore a player", self.app.open_restore, T.ACCENT))
         if not self.first:
-            rect = (T.W - 260, 14, 220, 52) if T.compact else (T.W // 2 - 110, T.H - 112, 220, 52)
-            self.buttons = [Button(rect, "Cancel", app.open_players, T.MUTED, hotkeys=(pygame.K_ESCAPE,))]
+            self.buttons.append(Button((T.W - 260, 14, 220, 52), "Cancel", self.app.open_players, T.MUTED,
+                                       hotkeys=(pygame.K_ESCAPE,)))
+        if not T.compact:   # side by side under the letter board
+            w = sum(b.rect.w for b in self.buttons) + 20 * (len(self.buttons) - 1)
+            x = T.W // 2 - w // 2
+            for b in self.buttons:
+                b.rect.topleft = (x, T.H - 112)
+                x += b.rect.w + 20
 
     def _type(self, ch):
-        if len(self.value) < NAME_LEN:
+        if len(self.value) < self.LENGTH:
             self.value += ch
             sound.play("key")
         self.pick = None
@@ -443,17 +467,17 @@ class NameEntryScene(Scene):
         self.error = None
 
     def _cycle(self, step):
-        if len(self.value) >= NAME_LEN:
+        if len(self.value) >= self.LENGTH:
             return
         if self.pick is None:   # step on from the letter before (from A on an empty name)
-            self.pick = NAME_CHARS.find(self.value[-1]) if self.value else -1 if step > 0 else 0
-        self.pick = (self.pick + step) % len(NAME_CHARS)
+            self.pick = self.CHARS.find(self.value[-1]) if self.value else -1 if step > 0 else 0
+        self.pick = (self.pick + step) % len(self.CHARS)
         sound.play("tick")
         self.error = None
 
     def _submit(self):
         if self.pick is not None:
-            self._type(NAME_CHARS[self.pick])
+            self._type(self.CHARS[self.pick])
         self.error = self.app.profile.can_add(self.value)
         if self.error:
             sound.play("wrong")
@@ -488,8 +512,8 @@ class NameEntryScene(Scene):
             self._cycle(-1)
         elif e.key in (pygame.K_RIGHT, pygame.K_SPACE):
             if self.pick is not None:
-                self._type(NAME_CHARS[self.pick])
-        elif e.unicode and e.unicode.upper() in NAME_CHARS:
+                self._type(self.CHARS[self.pick])
+        elif e.unicode and e.unicode.upper() in self.CHARS:
             self._type(e.unicode.upper())
         else:
             return False
@@ -502,22 +526,34 @@ class NameEntryScene(Scene):
             if self.flash[k] <= 0:
                 del self.flash[k]
 
-    def draw(self, surf):
-        cx = T.W // 2
-        heading_y, sub_y = (40, 84) if T.compact else (90, 146)
-        gfx.text(surf, "ENTER YOUR NAME", (cx, heading_y), 40, T.TEXT, bold=True, anchor="center")
+    def _texts(self):
+        """The heading, the line under it, and the hint under the slots."""
         if not self.first:
             sub = "A new player starts with fresh progress and their own settings."
         elif self.app.profile.data["subtests"] or self.app.profile.data["daily"]:
             sub = "Your progress so far will be kept under this name."
         else:
             sub = "Your progress is saved under this name. Everyone else can add their own."
+        if self.app.touch:
+            hint = "Tap the letters, then OK"
+        else:
+            hint = "Type your name, or pick each letter with Up/Down and lock it in with Right"
+        return "ENTER YOUR NAME", sub, hint
+
+    def draw(self, surf):
+        cx = T.W // 2
+        heading_y, sub_y = (40, 84) if T.compact else (90, 146)
+        heading, sub, hint = self._texts()
+        gfx.text(surf, heading, (cx, heading_y), 40, T.TEXT, bold=True, anchor="center")
         gfx.text(surf, sub, (cx, sub_y), gfx.fit_width(sub, 17, 1100), T.MUTED, anchor="center")
 
         slot_w, slot_h, gap = 72, 88, 14
-        x0 = cx - (NAME_LEN * slot_w + (NAME_LEN - 1) * gap) // 2
-        for i in range(NAME_LEN):
-            r = pygame.Rect(x0 + i * (slot_w + gap), self.slots_y - slot_h // 2, slot_w, slot_h)
+        group_gap = 24 if self.GROUP else 0
+        groups = (self.LENGTH - 1) // self.GROUP if self.GROUP else 0
+        x0 = cx - (self.LENGTH * slot_w + (self.LENGTH - 1) * gap + groups * group_gap) // 2
+        for i in range(self.LENGTH):
+            x = x0 + i * (slot_w + gap) + (i // self.GROUP * group_gap if self.GROUP else 0)
+            r = pygame.Rect(x, self.slots_y - slot_h // 2, slot_w, slot_h)
             filled = i < len(self.value)
             active = i == len(self.value)
             border = T.ACCENT if filled or active else T.BORDER
@@ -528,15 +564,10 @@ class NameEntryScene(Scene):
             if filled:
                 gfx.text(surf, self.value[i], r.center, 52, T.TEXT, bold=True, mono=True, anchor="center")
             elif active and self.pick is not None:
-                gfx.text(surf, NAME_CHARS[self.pick], r.center, 52, T.ACCENT, bold=True, mono=True, anchor="center")
+                gfx.text(surf, self.CHARS[self.pick], r.center, 52, T.ACCENT, bold=True, mono=True, anchor="center")
             elif active and int(self.t * 2) % 2 == 0:
                 pygame.draw.rect(surf, T.ACCENT, (r.centerx - 16, r.bottom - 18, 32, 4), border_radius=2)
-        if self.error:
-            line, col = self.error, T.BAD
-        elif self.app.touch:
-            line, col = "Tap the letters, then OK", T.DIM
-        else:
-            line, col = "Type your name, or pick each letter with Up/Down and lock it in with Right", T.DIM
+        line, col = (self.error, T.BAD) if self.error else (hint, T.DIM)
         gfx.text(surf, line, (cx, self.slots_y + slot_h // 2 + 26), gfx.fit_width(line, 15, 1000), col,
                  bold=self.error is not None, anchor="center")
 
@@ -550,6 +581,75 @@ class NameEntryScene(Scene):
             gfx.text(surf, label, r.center, 26 if len(label) == 1 else 19, T.TEXT, bold=True,
                      mono=len(label) == 1, anchor="center")
         super().draw(surf)
+
+
+class RestoreScene(NameEntryScene):
+    """Bring a player over from another device: enter their recovery code (see RecoveryCodeScene)."""
+
+    CHARS = CODE_CHARS
+    LENGTH = 12
+    GROUP = 4
+    BOARD = [CODE_CHARS[i:i + 10] for i in range(0, 30, 10)] + [list(CODE_CHARS[30:]) + ["Del", "OK"]]
+
+    def __init__(self, app):
+        self.busy = False
+        super().__init__(app)
+
+    def _add_buttons(self):
+        back = self.app.open_players if self.app.profile.current else self.app.to_menu
+        rect = (T.W - 260, 14, 220, 52) if T.compact else (T.W // 2 - 110, T.H - 112, 220, 52)
+        self.buttons = [Button(rect, "Back", back, T.MUTED, hotkeys=(pygame.K_ESCAPE,))]
+
+    def handle_event(self, e):
+        if e.type == pygame.KEYDOWN and e.key == pygame.K_v and e.mod & (pygame.KMOD_CTRL | pygame.KMOD_META):
+            self._paste()
+            return True
+        return super().handle_event(e)
+
+    def _paste(self):
+        try:
+            text = pygame.scrap.get_text() if not web.IS_WEB else ""
+        except (pygame.error, AttributeError):
+            text = ""
+        code = "".join(c for c in (text or "").upper() if c in self.CHARS)[:self.LENGTH]
+        if code:
+            self.value, self.pick, self.error = code, None, None
+            sound.play("key")
+
+    def _submit(self):
+        if self.busy:
+            return
+        if self.pick is not None:
+            self._type(self.CHARS[self.pick])
+        if len(self.value) < self.LENGTH:
+            self.error = f"Enter all {self.LENGTH} characters of the code"
+            sound.play("wrong")
+            return
+        self.busy = True
+        self.error = None
+
+        def done(why):
+            self.busy = False
+            if why:
+                self.error = why
+                sound.play("wrong")
+            else:
+                sound.play("submit")
+                if self.app.scene is self:
+                    self.app.to_menu()
+
+        code = "-".join(self.value[i:i + self.GROUP] for i in range(0, self.LENGTH, self.GROUP))
+        self.app.online.restore(code, done)
+
+    def _texts(self):
+        sub = "Enter the recovery code from Leaderboard > Move to another device on your other device."
+        if self.busy:
+            hint = "Restoring…"
+        elif self.app.touch:
+            hint = "Tap the characters, then OK"
+        else:
+            hint = "Type or paste the code, then press Enter"
+        return "RESTORE A PLAYER", sub, hint
 
 
 def _last_played(ts):
@@ -584,6 +684,16 @@ class PlayersScene(Scene):
         self.back_btn = Button(back, "Back", app.to_menu, T.ACCENT, hotkeys=(pygame.K_ESCAPE,))
         self.back_btn.enabled = p.current is not None
         self.buttons = [self.new_btn, self.remove_btn, self.back_btn]
+        if online.enabled():   # a player from another device
+            self.restore_btn = Button((0, 0, 0, 0), "Restore…", app.open_restore, T.ACCENT, hotkeys=(pygame.K_r,))
+            self.restore_btn.enabled = self.new_btn.enabled
+            self.buttons.insert(1, self.restore_btn)
+            row = [b for b in self.buttons if b is not self.back_btn or not T.compact]
+            w = 220 if T.compact else 200
+            x = T.W // 2 - (len(row) * (w + 20) - 20) // 2
+            for b in row:
+                b.rect.update(x, y, w, 52)
+                x += w + 20
 
     def _toggle_remove(self):
         self.removing = not self.removing
@@ -1435,6 +1545,11 @@ class LeaderboardScene(Scene):
         self.play_btn = Button((self.side.x + 30, self.side.bottom - 140, bw, 52), "Play a rated set",
                                lambda: app.start_practice(BY_CODE[self.code]), T.GOLD, primary=True, size=17)
         self.leave_btn = Button((self.side.x + 30, self.side.bottom - 76, bw, 52), "", self._leave, T.BAD, size=16)
+        self.code_btn = Button((self.side.x + 30, self.side.bottom - 204, bw, 52), "Move to another device",
+                               app.open_recovery_code, T.ACCENT, size=16)
+        if T.compact:   # three buttons need a little less room each
+            for i, b in enumerate((self.leave_btn, self.play_btn, self.code_btn)):
+                b.rect.update(b.rect.x, self.side.bottom - 70 - i * 58, bw, 48)
         back = (T.W - 260, 14, 220, 52) if T.compact else (T.W - 260, 30, 220, 52)
         self.back_btn = Button(back, "Back", app.to_menu, T.ACCENT, hotkeys=(pygame.K_ESCAPE,))
         self._sync_buttons()
@@ -1489,7 +1604,7 @@ class LeaderboardScene(Scene):
         acct = on.account()
         self.buttons = self.tabs + [self.back_btn]
         if acct:
-            self.buttons += [self.play_btn, self.leave_btn]
+            self.buttons += [self.code_btn, self.play_btn, self.leave_btn]
             self.leave_btn.label = "Tap again to leave" if self.armed else "Leave the leaderboard"
             self.leave_btn.primary = self.armed
         elif self.app.profile.current:
@@ -1574,8 +1689,8 @@ class LeaderboardScene(Scene):
         if not acct:
             gfx.text(surf, "COMPETE ONLINE", (x, y), 14, T.GOLD, bold=True)
             paras = [f"Put {name}'s puzzle ratings on the leaderboard.",
-                     "Only your name, your ratings and how many puzzles you've played are sent. Leave any "
-                     "time to delete them from the server."]
+                     "Your name, ratings and progress are sent. The progress is a backup that lets you move "
+                     "to another device with a recovery code. Leave any time to delete it all from the server."]
             if on.error:
                 paras.append(on.error)
             bottom = self.join_btn.rect.y - 16
@@ -1605,13 +1720,120 @@ class LeaderboardScene(Scene):
             big, line = "Unrated", f"Play a {cls.name} rated set to get a rating"
         r = gfx.text(surf, big, (x, y), 56 if big.startswith("#") else 34, col, bold=True)
         y = r.bottom + 6
-        bottom = self.play_btn.rect.y - 12
+        bottom = self.code_btn.rect.y - 12
         lines = [line]
         if me and me.get("rating") is not None:
             lines.append(f"Rating {me['rating']:.0f}  ·  peak {me['peak']:.0f}")
         size = gfx.fit_size(16, lambda k: gfx.block_height(lines, w, k, spacing=1.3, gap=6) <= bottom - y)
         for k, ln in enumerate(lines):
             y += gfx.text_block(surf, ln, (x, y), w, size, T.MUTED if k == 0 else T.TEXT, spacing=1.3) + 6
+
+
+class RecoveryCodeScene(Scene):
+    """The current player's recovery code, which moves them to another device (see RestoreScene)."""
+
+    def __init__(self, app):
+        super().__init__(app)
+        self.armed = False   # a second tap on New code gets one
+        self.busy = False
+        self.status = None
+        self.panel = pygame.Rect(0, 0, 1000, T.H - 200 if T.compact else 470)
+        self.panel.midtop = (T.W // 2, 84 if T.compact else 120)
+        y = self.panel.bottom + (16 if T.compact else 30)
+        self.copy_btn = Button((T.W // 2 - 350, y, 220, 52), "Copy", self._copy, T.ACCENT, hotkeys=(pygame.K_c,))
+        self.new_btn = Button((T.W // 2 - 110, y, 220, 52), "New code", self._new, T.BAD)
+        back = (T.W - 260, 14, 220, 52) if T.compact else (T.W // 2 + 130, y, 220, 52)
+        back_btn = Button(back, "Back", app.open_leaderboard, T.ACCENT, hotkeys=(pygame.K_ESCAPE,), primary=True)
+        if T.compact:
+            self.copy_btn.rect.x, self.new_btn.rect.x = T.W // 2 - 230, T.W // 2 + 10
+        self.buttons = [self.copy_btn, self.new_btn, back_btn]
+        acct = app.online.account()
+        if acct and not acct.get("code"):   # joined before there were codes
+            self._fetch()
+
+    def _code(self):
+        acct = self.app.online.account()
+        return acct.get("code") if acct else None
+
+    def _fetch(self):
+        self.busy = True
+
+        def got(req):
+            self.busy = False
+            self.status = None if req.ok else online.describe(req)
+
+        self.app.online.new_code(got)
+
+    def _new(self):
+        if not self.armed:
+            self.armed = True
+            return
+        self.armed = False
+        self._fetch()
+
+    def _copy(self):
+        code = self._code()
+        if not code:
+            return
+        try:
+            ok = web.copy_text(code) if web.IS_WEB else (pygame.scrap.put_text(code) or True)
+        except (pygame.error, AttributeError):
+            ok = False
+        self.status = "Copied!" if ok else "Couldn't reach the clipboard. Write the code down instead."
+
+    def handle_event(self, e):
+        if super().handle_event(e):
+            return True
+        if e.type == pygame.MOUSEBUTTONDOWN and e.button == 1:
+            self.armed = False
+        return False
+
+    def update(self, dt):
+        code = self._code()
+        self.copy_btn.enabled = bool(code) and not self.busy
+        self.new_btn.enabled = self.app.online.account() is not None and not self.busy
+        self.new_btn.label = "Tap again" if self.armed else "New code"
+        self.new_btn.primary = self.armed
+        super().update(dt)
+
+    def draw(self, surf):
+        gfx.text(surf, "MOVE TO ANOTHER DEVICE", (40, 16 if T.compact else 30), 34, T.TEXT, bold=True)
+        p = self.panel
+        gfx.glow(surf, p.center, 480, T.ACCENT, 0.06)
+        gfx.panel(surf, p, T.PANEL, T.BORDER, radius=20)
+        name = self.app.profile.current or ""
+        code = self._code()
+        y = p.y + (24 if T.compact else 36)
+        gfx.text(surf, f"{name}'S RECOVERY CODE", (p.centerx, y), 14, T.ACCENT, bold=True, anchor="midtop")
+        y += 30
+        if code and not self.busy:
+            r = gfx.text(surf, code, (p.centerx, y), 60 if T.compact else 72, T.TEXT, bold=True, mono=True,
+                         anchor="midtop")
+        else:
+            r = gfx.text(surf, "Getting your code…" if self.busy else "No code yet", (p.centerx, y + 20), 30,
+                         T.MUTED, bold=True, anchor="midtop")
+        if self.status:
+            bad = not self.status.startswith("Copied")
+            gfx.text(surf, self.status, (p.centerx, r.bottom + 10), gfx.fit_width(self.status, 15, p.w - 80),
+                     T.BAD if bad else T.GOOD, bold=True, anchor="midtop")
+        elif self.armed:
+            line = "Your current code will stop working."
+            gfx.text(surf, line, (p.centerx, r.bottom + 10), 15, T.BAD, bold=True, anchor="midtop")
+        paras = [
+            "On your other device, choose Restore a player when it asks for a name (or on the Who's playing "
+            "screen) and enter this code.",
+            f"{name}'s progress, settings and leaderboard place move there. This device keeps its copy of "
+            "the progress but stops posting to the leaderboard.",
+            "Keep the code private: anyone who has it can take over this player. If someone else has seen "
+            "it, get a new code.",
+        ]
+        top = r.bottom + 50
+        w = p.w - 120
+        size = gfx.fit_size(17, lambda k: gfx.block_height(paras, w, k, spacing=1.3, gap=12) <= p.bottom - 20 - top)
+        for k, para in enumerate(paras):
+            top += gfx.text_block(surf, para, (p.x + 60, top), w, size, T.TEXT if k == 0 else T.MUTED,
+                                  spacing=1.3) + 12
+        super().draw(surf)
 
 
 class LearnScene(Scene):

@@ -597,6 +597,8 @@ class FakeLeaderboard:
         self.agents = set()
         self.ratings = {}   # (token, code) -> {"rating", "played"}
         self.refuse = None  # an HTTP status to answer rating posts with
+        self.backups = {}   # name -> the progress last backed up
+        self.codes = {}     # recovery code -> name
         self.log = []
 
         class Handler(http.server.BaseHTTPRequestHandler):
@@ -621,12 +623,36 @@ class FakeLeaderboard:
                     board.joined += 1
                     tok = f"tok{board.joined}"
                     board.players[tok] = body["name"]
-                    return self._answer(201, {"id": tok, "name": body["name"], "tag": "AB23", "token": tok})
+                    code = f"CDEF-GHJK-{'ABCDEFGHJK'[board.joined]}AAA"
+                    board.codes[code] = body["name"]
+                    return self._answer(201, {"id": body["name"], "name": body["name"], "tag": "AB23", "token": tok,
+                                              "code": code})
+                if self.path == "/restore":
+                    name = board.codes.get(body["code"])
+                    if name is None:
+                        return self._answer(404, {"error": "no player has that code"})
+                    for tok in [t for t, n in board.players.items() if n == name]:
+                        del board.players[tok]   # the old device's token stops working
+                    board.joined += 1
+                    tok = f"tok{board.joined}"
+                    board.players[tok] = name
+                    ratings = [{"code": c, "rating": r["rating"], "played": r["played"], "peak": r["rating"]}
+                               for (t, c), r in board.ratings.items() if board.players.get(t, name) == name]
+                    return self._answer(200, {"id": name, "name": name, "tag": "AB23", "token": tok, "code": body["code"],
+                                              "data": board.backups.get(name), "ratings": ratings})
                 if token not in board.players:
                     return self._answer(401, {"error": "unknown player"})
                 if self.command == "DELETE":
                     del board.players[token]
                     return self._answer(204)
+                if self.path == "/backup":
+                    board.backups[board.players[token]] = body
+                    return self._answer(200, {"updated": 1})
+                if self.path == "/players/me/code":
+                    code = f"NEWC-GHJK-{'ABCDEFGHJK'[len(board.log) % 10]}AAA"
+                    board.codes = {c: n for c, n in board.codes.items() if n != board.players[token]}
+                    board.codes[code] = board.players[token]
+                    return self._answer(200, {"code": code})
                 code = self.path.split("/")[2][:2]
                 if self.command == "PUT":
                     if board.refuse:
@@ -732,6 +758,71 @@ class OnlineTests(unittest.TestCase):
         self.settle()
         self.assertEqual((self.board.players, Profile().root["forget"]), ({}, []))
 
+    def other_device(self):
+        """A second device's profile and leaderboard client."""
+        from puzzleth.online import Online
+        os.environ["PUZZLETH_HOME"] = os.path.join(tempfile.mkdtemp(), "profile.json")
+        profile = Profile()
+        return profile, Online(profile)
+
+    def restore(self, online, code):
+        """Restore with ``code`` on a device and wait for everything that follows; returns why it failed."""
+        import time
+        why = []
+        online.restore(code, why.append)
+        for _ in range(500):
+            online.poll()
+            if why and not online.pending:
+                return why[0]
+            time.sleep(0.01)
+        self.fail("restoring never finished")
+
+    def test_progress_moves_to_another_device(self):
+        self.profile.set_rating("MR", 1100, 10)
+        self.profile.record_subtest("MR", 15, 11, {})
+        self.online.join()
+        self.settle()
+        code = self.online.account()["code"]
+        sent = self.board.backups["ANA"]
+        self.assertNotIn("online", sent)                       # the token stays on the device
+        self.assertEqual(sent["subtests"]["MR"]["best"], 11)
+        n = len(self.board.log)
+        self.online.sync()                                     # nothing changed: nothing sent
+        self.settle()
+        self.assertEqual(len(self.board.log), n)
+        self.profile.set_rating("MR", 1130, 11)                # played after the last backup
+        self.online.push()
+        self.settle()
+
+        other, there = self.other_device()
+        self.assertIn("No player has that code", self.restore(there, "NOPE-NOPE-NOPE"))
+        self.assertIsNone(self.restore(there, code))
+        self.assertEqual(other.current, "ANA")
+        self.assertEqual(other.best_scaled("MR"), 11)
+        self.assertEqual(other.rating("MR")["played"], 11)    # the leaderboard's newer rating
+        self.assertEqual(Profile().player("ANA")["online"]["code"], code)
+        # the old device is no longer on the leaderboard, but keeps its progress
+        self.profile.set_rating("MR", 1140, 12)
+        self.online.push()
+        self.settle()
+        self.assertIsNone(self.online.account())
+        self.assertEqual(self.profile.best_scaled("MR"), 11)
+
+    def test_new_codes_and_players_with_the_same_name(self):
+        self.online.join()
+        self.settle()
+        code = self.online.account()["code"]
+        self.online.new_code()                                 # the old code stops working
+        self.settle()
+        new = self.online.account()["code"]
+        self.assertNotEqual(new, code)
+        other, there = self.other_device()
+        self.assertIn("No player has that code", self.restore(there, code))
+        other.add_player("ANA")                                # somebody else called ANA
+        self.assertIn("already a player called ANA", self.restore(there, new))
+        other.remove_player("ANA")
+        self.assertIsNone(self.restore(there, new))
+
     def test_unreachable_server(self):
         self.board.close()
         self.profile.set_rating("MR", 1100, 10)
@@ -799,6 +890,56 @@ class OnlineTests(unittest.TestCase):
                 scene._leave()
                 self.assertIsNone(self.online.account())
                 self.settle()
+            finally:
+                theme.set_compact(False)
+
+
+    def test_restore_and_recovery_code_scenes(self):
+        import time
+        from puzzleth import theme
+        from puzzleth.app import App
+        from puzzleth.scenes import MenuScene, RecoveryCodeScene, RestoreScene
+        self.online.join()
+        self.settle()
+        code = self.online.account()["code"]
+        surf = pygame.Surface((theme.W, theme.FULL_H))
+        for compact in (False, True):
+            theme.set_compact(compact)
+            try:
+                app = App(pygame.display.get_surface())
+                app.profile, app.online = self.profile, self.online
+                scene = RecoveryCodeScene(app)
+                scene.update(0.1)
+                scene.draw(surf)
+                self.assertTrue(scene.copy_btn.enabled)
+                for b in scene.buttons:
+                    self.assertTrue(pygame.Rect(0, 0, theme.W, theme.H).contains(b.rect), b.label)
+                other, there = self.other_device()
+                app = App(pygame.display.get_surface())
+                app.profile, app.online = other, there
+                app.goto(RestoreScene(app))
+                scene = app.scene
+                for ch in code.replace("-", "")[:-1]:
+                    scene.handle_event(pygame.event.Event(pygame.KEYDOWN, key=0, unicode=ch.lower(), mod=0, scancode=0))
+                scene._submit()
+                self.assertIn("all 12", scene.error)                # one character short
+                scene._type(code[-1])
+                scene._submit()
+                scene.draw(surf)
+                for _ in range(500):
+                    there.poll()
+                    if not there.pending:
+                        break
+                    time.sleep(0.01)
+                self.assertIsInstance(app.scene, MenuScene, getattr(app.scene, "error", None))
+                self.assertEqual(other.current, "ANA")
+                # players who joined before there were codes are given one; it moves them on again
+                self.profile, self.online = other, there
+                self.online.account()["code"] = None
+                RecoveryCodeScene(app)
+                self.settle()
+                self.assertNotEqual(self.online.account()["code"], code)
+                code = self.online.account()["code"]
             finally:
                 theme.set_compact(False)
 

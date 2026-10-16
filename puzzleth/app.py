@@ -1,5 +1,6 @@
 """Main loop and scene/flow management."""
 import asyncio
+import os
 
 import pygame
 
@@ -8,7 +9,8 @@ from . import theme as T
 from .challenge import START_RATING, DailyLadder, RatedLadder
 from .display import Display, Stage, stage_size
 from .scenes import (BatteryResultScene, DisclaimerScene, IntroScene, LadderResultScene, LeaderboardScene, LearnScene,
-                     MenuScene, NameEntryScene, PauseOverlay, PlayersScene, SettingsScene, SubtestResultScene)
+                     MenuScene, NameEntryScene, PauseOverlay, PlayersScene, RecoveryCodeScene, RestoreScene,
+                     SettingsScene, SubtestResultScene)
 from .storage import Profile
 from .subtests import ORDER
 from .subtests.base import Subtest, pause_rect
@@ -21,7 +23,7 @@ class App:
         self.profile = Profile()
         self.online = online.Online(self.profile)
         self.online.flush()   # players who left the leaderboard while it was out of reach
-        self.online.push()    # ratings earned while it was
+        self.online.sync()    # ratings and progress earned while it was
         sound.init(self.profile.settings["sfx_volume"], self.profile.settings["music_volume"])
         if screen is not None:
             self.stage = Stage(screen)
@@ -47,6 +49,7 @@ class App:
         self.portrait = False
         if web.IS_WEB:   # before the first scene lays itself out
             self._check_large_text()
+            web.mark_started()
         if not self.profile.settings.get("disclaimer_seen"):
             self.scene = DisclaimerScene(self)
         elif len(self.profile.players()) > 1:   # make sure the right person is playing
@@ -78,10 +81,16 @@ class App:
     def open_leaderboard(self, code=None):
         self.goto(LeaderboardScene(self, code))
 
+    def open_restore(self):
+        self.goto(RestoreScene(self))
+
+    def open_recovery_code(self):
+        self.goto(RecoveryCodeScene(self))
+
     def player_changed(self):
         """After switching or removing players: catch the leaderboard up."""
         self.online.flush()
-        self.online.push()
+        self.online.sync()
 
     def quit(self):
         self.running = False
@@ -135,8 +144,7 @@ class App:
     def ladder_done(self, sub):
         lad = sub.ladder
         counted = lad.kind == "daily" and self.profile.record_daily(lad.day, lad.cls.code, lad.results)
-        if lad.kind == "rated":
-            self.online.push()
+        self.online.sync()
         self.goto(LadderResultScene(self, lad, counted))
 
     def toggle_fullscreen(self):
@@ -169,6 +177,7 @@ class App:
                 self.goto(BatteryResultScene(self, b["scaled"], b["raw"], indexes, fsiq))
         else:
             self.goto(SubtestResultScene(self, type(sub), raw, scaled, best_before, details))
+        self.online.backup()
 
     @property
     def screen(self):
@@ -258,7 +267,11 @@ class App:
     async def run_async(self):
         # yielding to the event loop every frame is what lets the game run inside a browser
         frame = 0
+        # PUZZLETH_QUIT_AFTER=N: close after N frames (a smoke test of a packaged build)
+        quit_after = int(os.environ.get("PUZZLETH_QUIT_AFTER") or 0)
         while self.running:
+            if quit_after and frame >= quit_after:
+                break
             dt = min(0.05, self.clock.tick(T.FPS) / 1000)
             self.step(dt, pygame.event.get())
             if web.IS_WEB and frame % 30 == 0:

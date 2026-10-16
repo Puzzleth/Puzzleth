@@ -151,3 +151,29 @@ def music_volume(v):
         _window().puzzleth_music_volume(v)
     except Exception:
         pass
+
+
+# Updates: see puzzleth_check_version in tools/web/puzzleth.tmpl
+def mark_started():
+    """Tell the page the game is running, so a newer build waits to be chosen from the menu."""
+    try:
+        _window().puzzleth_set_started()
+    except Exception:
+        pass
+
+
+def update_ready():
+    """Whether a newer build of the web version has been published since this page loaded."""
+    if not IS_WEB:
+        return False
+    try:
+        return bool(_window().puzzleth_update_ready())
+    except Exception:
+        return False
+
+
+def load_update():
+    try:
+        _window().puzzleth_reload("")
+    except Exception:
+        pass

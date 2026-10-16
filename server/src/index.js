@@ -1,15 +1,23 @@
 // Puzzleth's online leaderboard: a Cloudflare Worker with a D1 database (see server/README.md).
 //
-//   POST   /players              {name}             join: returns {id, tag, token}
+//   POST   /players              {name}             join: returns {id, tag, token, code}
 //   PUT    /ratings/:code        {rating, played}   post your rating: returns {rank, total}
 //   GET    /leaderboard/:code    ?limit=10          the top players, and you (with your token)
-//   DELETE /players/me                              leave: removes you and your ratings
+//   DELETE /players/me                              leave: removes you, your ratings and your backup
+//   PUT    /backup               {...}              back up your progress (the game's own JSON)
+//   POST   /players/me/code                         a new recovery code: returns {code}
+//   POST   /restore              {code}             move to this device: returns {id, name, tag, token,
+//                                                   code, data, ratings}
 //
 // A player proves who they are with the token they got on joining ("Authorization: Bearer ...").
+// Their recovery code lets them get a new token on another device, which retires the old one.
 // Ratings are worked out by the game, so the server can't check every puzzle; it accepts only
 // ratings the game's rules could have produced (see checkRating in rules.js).
 
-import { CODES, MAX_RATING, NAME, RANKED_AFTER, SIGNUPS_PER_DAY, TAG_CHARS, checkRating } from "./rules.js";
+import {
+  CODE_LEN, CODES, MAX_BACKUP, MAX_RATING, NAME, RANKED_AFTER, RESTORE_FAILS_PER_DAY, SIGNUPS_PER_DAY, TAG_CHARS,
+  checkRating,
+} from "./rules.js";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -42,9 +50,9 @@ async function sha256(text) {
   return Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-async function readJson(request) {
+async function readJson(request, max = 1000) {
   const text = await request.text();
-  if (text.length > 1000) return null;
+  if (text.length > max) return null;
   try {
     const data = JSON.parse(text);
     return data && typeof data === "object" ? data : null;
@@ -57,6 +65,19 @@ async function player(request, db) {
   const m = /^Bearer (\S+)$/.exec(request.headers.get("Authorization") || "");
   if (!m) return null;
   return db.prepare("SELECT id, name, tag FROM players WHERE token_hash = ?").bind(await sha256(m[1])).first();
+}
+
+/** A recovery code as players see it, XXXX-XXXX-XXXX, and as it's hashed: without dashes or spaces. */
+const newCode = () => randomString(CODE_LEN, TAG_CHARS).replace(/(.{4})(?=.)/g, "$1-");
+const plainCode = (code) => String(code).toUpperCase().replace(/[^0-9A-Z]/g, "");
+const codeHash = (code) => sha256("puzzleth-code:" + plainCode(code));
+
+/** How many times this address did ``what`` in the last day (signups doubles as the log of both). */
+async function recently(request, env, what, now) {
+  const ipHash = await sha256(`puzzleth${what}:` + (request.headers.get("CF-Connecting-IP") || ""));
+  await env.DB.prepare("DELETE FROM signups WHERE ts < ?").bind(now - 86400).run();
+  const row = await env.DB.prepare("SELECT COUNT(*) AS n FROM signups WHERE ip_hash = ?").bind(ipHash).first();
+  return { n: row.n, log: env.DB.prepare("INSERT INTO signups (ip_hash, ts) VALUES (?, ?)").bind(ipHash, now) };
 }
 
 async function rankOf(db, code, rating) {
@@ -75,19 +96,19 @@ async function join(request, env) {
   const name = body && typeof body.name === "string" ? body.name : "";
   if (!NAME.test(name)) return fail(400, "names are 1 to 8 capital letters and digits");
   const now = Math.floor(Date.now() / 1000);
-  const ipHash = await sha256("puzzleth:" + (request.headers.get("CF-Connecting-IP") || ""));
-  await env.DB.prepare("DELETE FROM signups WHERE ts < ?").bind(now - 86400).run();
-  const recent = await env.DB.prepare("SELECT COUNT(*) AS n FROM signups WHERE ip_hash = ?").bind(ipHash).first();
+  const recent = await recently(request, env, "", now);
   if (recent.n >= SIGNUPS_PER_DAY) return fail(429, "too many new players from here today");
   const id = randomString(12, "0123456789abcdef");
   const tag = randomString(4, TAG_CHARS);
   const token = randomToken();
+  const code = newCode();
   await env.DB.batch([
     env.DB.prepare("INSERT INTO players (id, name, tag, token_hash, created) VALUES (?, ?, ?, ?, ?)").bind(
       id, name, tag, await sha256(token), now),
-    env.DB.prepare("INSERT INTO signups (ip_hash, ts) VALUES (?, ?)").bind(ipHash, now),
+    env.DB.prepare("INSERT INTO backups (player_id, code_hash) VALUES (?, ?)").bind(id, await codeHash(code)),
+    recent.log,
   ]);
-  return json({ id, name, tag, token }, 201);
+  return json({ id, name, tag, token, code }, 201);
 }
 
 async function postRating(request, env, code) {
@@ -153,9 +174,69 @@ async function leave(request, env) {
   if (!me) return fail(401, "unknown player");
   await env.DB.batch([
     env.DB.prepare("DELETE FROM ratings WHERE player_id = ?").bind(me.id),
+    env.DB.prepare("DELETE FROM backups WHERE player_id = ?").bind(me.id),
     env.DB.prepare("DELETE FROM players WHERE id = ?").bind(me.id),
   ]);
   return new Response(null, { status: 204, headers: CORS });
+}
+
+async function backup(request, env) {
+  const me = await player(request, env.DB);
+  if (!me) return fail(401, "unknown player");
+  const data = await readJson(request, MAX_BACKUP);
+  if (!data || Array.isArray(data)) return fail(400, `expected a JSON object of at most ${MAX_BACKUP} characters`);
+  const now = Math.floor(Date.now() / 1000);
+  await env.DB
+    .prepare(
+      "INSERT INTO backups (player_id, data, updated) VALUES (?1, ?2, ?3) " +
+        "ON CONFLICT (player_id) DO UPDATE SET data = ?2, updated = ?3",
+    )
+    .bind(me.id, JSON.stringify(data), now)
+    .run();
+  return json({ updated: now });
+}
+
+async function renewCode(request, env) {
+  const me = await player(request, env.DB);
+  if (!me) return fail(401, "unknown player");
+  const code = newCode();
+  await env.DB
+    .prepare(
+      "INSERT INTO backups (player_id, code_hash) VALUES (?1, ?2) " +
+        "ON CONFLICT (player_id) DO UPDATE SET code_hash = ?2",
+    )
+    .bind(me.id, await codeHash(code))
+    .run();
+  return json({ code });
+}
+
+async function restore(request, env) {
+  const body = await readJson(request);
+  const code = body && typeof body.code === "string" ? body.code : "";
+  const now = Math.floor(Date.now() / 1000);
+  const recent = await recently(request, env, "-restore", now);
+  if (recent.n >= RESTORE_FAILS_PER_DAY) return fail(429, "too many wrong codes from here today");
+  const found = plainCode(code).length === CODE_LEN && await env.DB
+    .prepare(
+      "SELECT p.id, p.name, p.tag, b.data FROM backups b JOIN players p ON p.id = b.player_id WHERE b.code_hash = ?",
+    )
+    .bind(await codeHash(code))
+    .first();
+  if (!found) {
+    await recent.log.run();
+    return fail(404, "no player has that code");
+  }
+  // a new token for this device; the old device's stops working
+  const token = randomToken();
+  await env.DB.prepare("UPDATE players SET token_hash = ? WHERE id = ?").bind(await sha256(token), found.id).run();
+  const { results } = await env.DB
+    .prepare("SELECT code, rating, played, peak FROM ratings WHERE player_id = ?")
+    .bind(found.id)
+    .all();
+  return json({
+    id: found.id, name: found.name, tag: found.tag, token, code: plainCode(code).replace(/(.{4})(?=.)/g, "$1-"),
+    data: found.data ? JSON.parse(found.data) : null, ratings: results,
+  });
 }
 
 async function handle(request, env) {
@@ -165,6 +246,9 @@ async function handle(request, env) {
   if (method === "OPTIONS") return new Response(null, { status: 204, headers: CORS });
   if (path === "/players" && method === "POST") return join(request, env);
   if (path === "/players/me" && method === "DELETE") return leave(request, env);
+  if (path === "/players/me/code" && method === "POST") return renewCode(request, env);
+  if (path === "/backup" && method === "PUT") return backup(request, env);
+  if (path === "/restore" && method === "POST") return restore(request, env);
   const m = /^\/(ratings|leaderboard)\/([A-Z]{2})$/.exec(path);
   if (m && CODES.includes(m[2])) {
     if (m[1] === "ratings" && method === "PUT") return postRating(request, env, m[2]);
