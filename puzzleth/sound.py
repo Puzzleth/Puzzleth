@@ -53,6 +53,7 @@ _started = 0  # pygame.time.get_ticks() when it started playing
 _fade = 0.0  # where its fade in or out is now (0 silent .. 1 full)
 _lengths = {}  # path -> seconds, measured in the background on the desktop
 _check = 0.0
+_silent_buffer = None  # holds the silent sound used to stabilize audio device on init
 
 
 def folders(kind):
@@ -63,12 +64,39 @@ def folders(kind):
     return dirs
 
 
+def _create_silent_buffer():
+    """Create a silent sound to stabilize the audio device on initialization.
+    
+    On Windows, the audio device can produce a "pop" when initialized because the output
+    starts without a stabilization period. Playing a brief silent buffer immediately after
+    mixer.init() prevents this artifact by letting the audio system settle before any real
+    sound is played.
+    """
+    global _silent_buffer
+    if not pygame.mixer.get_init():
+        return
+    try:
+        # Create 100ms of silent audio (44100 Hz, 16-bit, 2 channels)
+        # At 44100 Hz sampling rate: 44100 samples/sec * 0.1 sec = 4410 samples
+        # 16-bit stereo = 2 bytes per sample * 2 channels = 4 bytes per sample frame
+        sample_count = int(44100 * 0.1)
+        silence = bytes(sample_count * 4)  # 16-bit stereo = 4 bytes per sample frame
+        _silent_buffer = pygame.mixer.Sound(buffer=silence)
+        _silent_buffer.set_volume(0)  # Ensure it's silent
+        _silent_buffer.play()  # Play it to initialize the output device
+    except (pygame.error, Exception):
+        # If creating the silent buffer fails, continue anyway
+        # The pop is a minor issue compared to not being able to play any sounds
+        _silent_buffer = None
+
+
 def init(sfx_volume=0.75, music_volume=0.5):
     global _ok
     try:
         if not pygame.mixer.get_init():
             pygame.mixer.init(44100, -16, 2, 512)
         pygame.mixer.set_num_channels(16)
+        _create_silent_buffer()
         _ok = True
     except pygame.error:
         _ok = False
