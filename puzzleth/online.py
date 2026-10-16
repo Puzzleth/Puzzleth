@@ -10,7 +10,7 @@ import json
 import os
 import threading
 
-from . import web
+from . import i18n, web
 
 # The leaderboard server's address, e.g. "https://puzzleth-leaderboard.you.workers.dev" (see
 # server/README.md). The game shows the leaderboard once it's set. PUZZLETH_SERVER overrides it.
@@ -106,7 +106,8 @@ class Request:
 def describe(req):
     """What went wrong with a request, for the player."""
     if not valid():
-        return f"The leaderboard's address, {server()!r}, isn't a web address (see server/README.md)."
+        return i18n.f("The leaderboard's address, {address}, isn't a web address (see server/README.md).",
+                      address=repr(server()))
     if req.status == 0:
         return "Couldn't reach the leaderboard. Check your connection and try again."
     if req.status == 429:
@@ -114,7 +115,7 @@ def describe(req):
             return "Too many wrong codes from here today. Try again tomorrow."
         return "Too many new players from here today. Try again tomorrow."
     error = req.data.get("error") if isinstance(req.data, dict) else None
-    return f"The leaderboard said no ({error or req.status})."
+    return i18n.f("The leaderboard said no ({error}).", error=error or req.status)
 
 
 class Online:

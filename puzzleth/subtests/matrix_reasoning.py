@@ -2,7 +2,7 @@
 import pygame
 
 from ..display import mouse_pos
-from .. import gfx, shapes
+from .. import gfx, i18n, shapes
 from .. import theme as T
 from .base import ItemSubtest
 
@@ -209,7 +209,7 @@ class MatrixReasoning(ItemSubtest):
     def choose(self, i):
         self.choice = i
         ok = i == self.item["answer"]
-        self.submit(1 if ok else 0, "" if ok else f"The answer was option {self.item['answer'] + 1}.")
+        self.submit(1 if ok else 0, "" if ok else i18n.f("The answer was option {option}.", option=self.item["answer"] + 1))
 
     def on_item_start(self):
         self.choice = None
