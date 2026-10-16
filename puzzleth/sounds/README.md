@@ -11,7 +11,7 @@ To silence one sound, use a file with no sound in it. Restart the game to hear c
 
 | File | When it plays |
 |---|---|
-| `digit1` … `digit9` | Digit Span reads each digit out as it appears (one per second, so keep them under 0.7 s) |
+| `digit1` … `digit9` | Digit Span reads each digit out as it appears (one per second, so keep them under 0.7 s). The Romanian and French ones are in `ro/` and `fr/`, used while that language is chosen (`~/.puzzleth/sounds/ro/` and `fr/` override them) |
 | `tap` | Any button or on-screen key |
 | `key` | Typing a digit, deleting one, turning a Block Design block |
 | `select` | Choosing or un-choosing a Visual Puzzles piece |
@@ -28,8 +28,11 @@ How loud each one plays, compared with the others, is set in `LEVELS` in `puzzle
 Sound effects setting turns them all up or down.
 
 `tools/make_sounds.py` makes the original files: it synthesizes the effects and has
-[Piper](https://github.com/rhasspy/piper) speak the digits with its LJSpeech voice, whose
-recordings are public domain.
+[Piper](https://github.com/rhasspy/piper) speak the digits: in English with its LJSpeech voice,
+whose recordings are public domain; in Romanian with its Mihai voice, trained on recordings
+released under CC0; and in French with its SIWIS voice, trained on the
+[SIWIS French Speech Synthesis Database](https://datashare.is.ed.ac.uk/handle/10283/2353)
+(Junichi Yamagishi, Pierre-Edouard Honnet, Philip Garner and Alexandros Lazaridis, CC BY 4.0).
 
 ## Music
 

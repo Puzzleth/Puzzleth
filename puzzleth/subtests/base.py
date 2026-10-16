@@ -16,7 +16,7 @@ import random
 
 import pygame
 
-from .. import gfx, sound
+from .. import gfx, i18n, sound
 from .. import theme as T
 
 CONTINUE_KEYS = (pygame.K_RETURN, pygame.K_KP_ENTER, pygame.K_SPACE)
@@ -83,7 +83,7 @@ class Subtest:
     def draw_header(self, surf, subtitle="", right=""):
         chip = pygame.Rect(40, 26, 58, 26)
         gfx.panel(surf, chip, gfx.lerp_color(T.PANEL, self.accent, 0.3), self.accent, radius=13)
-        gfx.text(surf, self.index, chip.center, 14, self.accent, bold=True, anchor="center")
+        gfx.text(surf, i18n.abbr(self.index), chip.center, 14, self.accent, bold=True, anchor="center")
         r = gfx.text(surf, self.name, (chip.right + 14, chip.centery), 26, T.TEXT, bold=True, anchor="midleft")
         if subtitle:
             gfx.text(surf, subtitle, (r.right + 16, chip.centery + 2), 17, T.MUTED, anchor="midleft")
@@ -318,17 +318,18 @@ class ItemSubtest(Subtest):
     def item_label(self):
         if self.ladder:
             lad = self.ladder
-            tag = f"{lad.label()}  ·  puzzle {lad.position + (self.state == 'item')} of {lad.length}  ·  level {self.cur}"
-            return tag + ("  (beyond the real test)" if self.cur > self.n_items else "")
+            tag = i18n.f("{set}  ·  puzzle {position} of {length}  ·  level {level}", set=lad.label(),
+                         position=lad.position + (self.state == "item"), length=lad.length, level=self.cur)
+            return tag + (i18n._("  (beyond the real test)") if self.cur > self.n_items else "")
         if self.is_sample:
             return "Sample item"
-        tag = f"Item {self.cur} of {self.n_items}"
+        tag = i18n.f("Item {item} of {items}", item=self.cur, items=self.n_items)
         if self.phase == "reverse" and self.feedback:   # under test conditions this would leak scores
-            tag += "  ·  reverse order"
+            tag += i18n._("  ·  reverse order")
         return tag
 
     def footer_rule(self):
-        return f"Stops after {self.discontinue_n} consecutive scores of 0"
+        return i18n.f("Stops after {n} consecutive scores of 0", n=self.discontinue_n)
 
     def draw(self, surf):
         self.draw_header(surf, self.item_label())
@@ -365,7 +366,7 @@ class ItemSubtest(Subtest):
             pygame.draw.rect(surf, col, (x + i * 22, y - 8, 16, 16), border_radius=4)
         x += self.ladder.length * 22 + 12
         if self.ladder.kind == "rated":
-            msg = f"Rating {self.ladder.rating:.0f}  ·  puzzles adapt to your rating"
+            msg = i18n.f("Rating {rating}  ·  puzzles adapt to your rating", rating=round(self.ladder.rating))
         else:
             msg = "Same puzzles for everyone today  ·  easy to brutal"
         gfx.text(surf, msg, (x, y), 14, T.DIM, anchor="midleft")
@@ -375,10 +376,16 @@ class ItemSubtest(Subtest):
         p, mx = self.fb["points"], self.fb["max"]
         col = T.GOOD if p == mx else (T.PARTIAL if p > 0 else T.BAD)
         word = "Perfect" if p == mx else ("Partial credit" if p > 0 else "No credit")
-        rect = pygame.Rect(0, 0, 760, 74)
+        w = 860 if T.compact else 760
+        # a long explanation (a best answer in a wordier language) wraps, and the bar grows upwards for it
+        explain = self.fb["explain"]
+        room = w - 116 - T.font(15).size(i18n._(self.prompt("Enter to continue")))[0]
+        size = gfx.fit_width(explain, 15, room)
+        lines = gfx.wrap(explain, size, room) if explain else []
+        lh = T.font(size).get_linesize()
+        rect = pygame.Rect(0, 0, w, 74 + lh * max(0, len(lines) - 1))
         rect.midbottom = (T.W // 2, T.H - 52)
         if T.compact:   # over the footer, clear of the pause button
-            rect.w = 860
             rect.midbottom = (T.W // 2 - 50, T.H - 10)
         a = gfx.ease_out(self.fb_t / 0.25)
         rect.y += int((1 - a) * 20)
@@ -386,14 +393,12 @@ class ItemSubtest(Subtest):
         gfx.panel(surf, rect, gfx.lerp_color(T.PANEL, col, 0.16), col, radius=16)
         gfx.circle(surf, (rect.x + 40, rect.centery), 22, col)
         gfx.text(surf, f"+{p}", (rect.x + 40, rect.centery), 18, T.BG, bold=True, anchor="center")
-        head = f"{word}  ·  {p} / {mx}" + ("   (sample, not scored)" if self.is_sample else "")
+        head = f"{i18n._(word)}  ·  {p} / {mx}" + (i18n._("   (sample, not scored)") if self.is_sample else "")
         head_y = rect.y + (8 if T.large_text else 14)
         gfx.text(surf, head, (rect.x + 76, head_y), 19, col, bold=True)
-        if self.fb["explain"]:
-            explain_y = head_y + max(28, T.font(19, True).get_linesize())
-            room = rect.w - 116 - T.font(15).size(self.prompt("Enter to continue"))[0]
-            gfx.text(surf, self.fb["explain"], (rect.x + 76, explain_y), gfx.fit_width(self.fb["explain"], 15, room),
-                     T.TEXT)
+        explain_y = head_y + max(28, T.font(19, True).get_linesize())
+        for i, line in enumerate(lines):
+            gfx.text(surf, line, (rect.x + 76, explain_y + i * lh), size, T.TEXT)
         gfx.text(surf, self.prompt("Enter to continue"), (rect.right - 20, rect.centery), 15, T.MUTED,
                  anchor="midright")
 
@@ -415,6 +420,7 @@ class SpeedSubtest(Subtest):
         self.flash = 0.0
         self.flash_col = T.GOOD
         self.practice_msg = ""
+        self.practice_ok = False
         self.setup()
         self.new_item(practice=True)
 
@@ -426,7 +432,8 @@ class SpeedSubtest(Subtest):
             sound.play("correct" if ok else "wrong")
             self.flash_col = T.GOOD if ok else T.BAD
             self.flash = 1.0
-            self.practice_msg = "Correct!" if ok else "Not quite — " + self.explain_wrong()
+            self.practice_ok = ok
+            self.practice_msg = i18n._("Correct!") if ok else i18n._("Not quite — ") + i18n._(self.explain_wrong())
             if ok:
                 self.practice_left -= 1
                 if self.practice_left <= 0:
@@ -485,7 +492,8 @@ class SpeedSubtest(Subtest):
                 self.end()
 
     def draw(self, surf):
-        sub = {"practice": "Practice", "ready": "Ready", "run": f"{self.attempted} answered", "over": ""}[self.state]
+        sub = {"practice": "Practice", "ready": "Ready", "run": i18n.n(self.attempted, "{n} answered", "{n} answered"),
+               "over": ""}[self.state]
         self.draw_header(surf, sub)
         self.draw_timer(surf, self.remaining, self.duration)
         if self.state == "ready":
@@ -493,18 +501,20 @@ class SpeedSubtest(Subtest):
         else:
             self.draw_item(surf)
             if self.state == "practice":
-                gfx.text(surf, f"Practice — {self.practice_left} correct answer(s) to go. Not timed.",
+                gfx.text(surf, i18n.n(self.practice_left, "Practice — {n} correct answer to go. Not timed.",
+                                      "Practice — {n} correct answers to go. Not timed."),
                          (T.W // 2, 92), 17, T.MUTED, anchor="center")
                 if self.practice_msg:
-                    col = T.GOOD if self.practice_msg.startswith("Correct") else T.BAD
+                    col = T.GOOD if self.practice_ok else T.BAD
                     gfx.text(surf, self.practice_msg, (T.W // 2, T.H - 80), 18, col, bold=True, anchor="center")
-        self.draw_footer(surf, f"{self.duration}-second limit  ·  work fast, but accurately")
+        self.draw_footer(surf, i18n.f("{seconds}-second limit  ·  work fast, but accurately", seconds=self.duration))
 
     def draw_ready(self, surf):
         c = (T.W // 2, T.H // 2 - 30)
         gfx.glow(surf, c, 220, self.accent, 0.25 + 0.1 * abs(((self.t * 0.8) % 2) - 1))
         gfx.text(surf, "Practice complete", (c[0], c[1] - 70), 34, T.TEXT, bold=True, anchor="center")
-        gfx.text(surf, f"The {self.duration}-second timer starts as soon as you continue.", (c[0], c[1] - 20), 20,
+        gfx.text(surf, i18n.f("The {seconds}-second timer starts as soon as you continue.", seconds=self.duration),
+                 (c[0], c[1] - 20), 20,
                  T.MUTED, anchor="center")
         gfx.text(surf, "No feedback is given during the timed section.", (c[0], c[1] + 12), 20, T.MUTED,
                  anchor="center")

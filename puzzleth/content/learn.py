@@ -188,3 +188,9 @@ TOPICS = [
     ("myths", "IQ myths and facts", MYTHS),
     ("about", "About this game", ABOUT),
 ]
+
+
+def topics(language):
+    """TOPICS in ``language``: from learn_<language> for the translations, which keep the same keys."""
+    from . import learn_fr, learn_ro
+    return {"ro": learn_ro.TOPICS, "fr": learn_fr.TOPICS}.get(language, TOPICS)

@@ -5,7 +5,7 @@ scores run 1-19, mean 10). Index and FSIQ nodes are progress rings over their sc
 """
 import math
 
-from . import gfx, scoring
+from . import gfx, i18n, scoring
 from . import theme as T
 from .subtests import BY_CODE
 
@@ -136,13 +136,13 @@ class SkillTree:
         gfx.circle(surf, pos, SUB_R, col if hover else T.BORDER, 1)
         gfx.pips(surf, pos, SUB_RING, 6, 19, filled, col, ghost=best)
         if scaled and hide:
-            gfx.text(surf, code, (x, y), 18, col, bold=True, anchor="center")
+            gfx.text(surf, i18n.abbr(code), (x, y), 18, col, bold=True, anchor="center")
         else:
             if scaled:
                 gfx.text(surf, str(filled), (x, y - 3), 24, T.TEXT, bold=True, anchor="center")
             else:
                 gfx.text(surf, "–", (x, y - 3), 22, T.DIM, bold=True, anchor="center")
-            gfx.text(surf, code, (x, y + 15), 11, col if scaled else T.DIM, bold=True, anchor="center")
+            gfx.text(surf, i18n.abbr(code), (x, y + 15), 11, col if scaled else T.DIM, bold=True, anchor="center")
         if self.names:
             gfx.text(surf, BY_CODE[code].name, (x, y + SUB_RING + 16), 14, T.TEXT if hover else T.MUTED,
                      anchor="center")
@@ -160,14 +160,14 @@ class SkillTree:
         # tick at the population mean (100)
         gfx.arc(surf, pos, IDX_RING, 12, math.pi - 0.02, math.pi + 0.02, T.MUTED)
         if has and hide:
-            gfx.text(surf, idx, (x, y), 20, col, bold=True, anchor="center")
+            gfx.text(surf, i18n.abbr(idx), (x, y), 20, col, bold=True, anchor="center")
             return
         if has:
             val = int(round(50 + (score - 50) * frac))
             gfx.text(surf, str(val), (x, y - 5), 30, T.TEXT, bold=True, anchor="center")
         else:
             gfx.text(surf, "?", (x, y - 5), 28, T.DIM, bold=True, anchor="center")
-        gfx.text(surf, idx, (x, y + 20), 12, col, bold=True, anchor="center")
+        gfx.text(surf, i18n.abbr(idx), (x, y + 20), 12, col, bold=True, anchor="center")
 
     def _fsiq_node(self, surf, pos, score, frac, hover, t, hide=False):
         x, y = pos

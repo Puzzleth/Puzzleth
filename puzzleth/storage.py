@@ -5,7 +5,7 @@ import os
 import time
 from pathlib import Path
 
-from . import web
+from . import i18n, web
 
 WEB_KEY = "puzzleth.profile"
 
@@ -29,7 +29,7 @@ PLAYER_SETTINGS = ("feedback", "show_scores", "expect_seen")
 
 
 def _default_settings():
-    return {"sfx_volume": 0.75, "music_volume": 0.5}
+    return {"sfx_volume": 0.75, "music_volume": 0.5, "language": None}
 
 
 def _default_player():
@@ -151,9 +151,9 @@ class Profile:
         if not name:
             return "Enter at least one letter"
         if name in self.root["players"]:
-            return f"{name} is already a player here"
+            return i18n.f("{name} is already a player here", name=name)
         if len(self.root["players"]) >= MAX_PLAYERS:
-            return f"There can be at most {MAX_PLAYERS} players"
+            return i18n.f("There can be at most {n} players", n=MAX_PLAYERS)
         return None
 
     def add_player(self, name):
@@ -203,9 +203,9 @@ class Profile:
         name = clean_name(name)
         mine = self.root["players"].get(name)
         if mine is not None and (mine.get("online") or {}).get("id") != account["id"]:
-            return f"There's already a player called {name} here. Remove them first."
+            return i18n.f("There's already a player called {name} here. Remove them first.", name=name)
         if mine is None and len(self.root["players"]) >= MAX_PLAYERS:
-            return f"There can be at most {MAX_PLAYERS} players"
+            return i18n.f("There can be at most {n} players", n=MAX_PLAYERS)
         player = _default_player()
         for k, v in (data or {}).items():
             if k in player and isinstance(v, type(player[k])):

@@ -1,6 +1,6 @@
 # Puzzleth
 
-**v0.0.1 (pre-alpha)**
+**v0.0.2 PRE-ALPHA**
 
 A puzzle game built on the structure and rules of a real intelligence test, the WAIS-IV. Every
 puzzle is generated fresh, your skills grow as a constellation of skill-point rings, and harder
@@ -141,8 +141,12 @@ Puzzles and multi-step word problems.
 
 ## Notes
 
-- **English only.** Vocabulary, Similarities, Information and Arithmetic are written in English
-  and assume some general Western knowledge. Translations are welcome.
+- **Languages.** Puzzleth is in English, Romanian and French. Choose one when the game starts; it
+  is saved on the device and can be changed in Settings. Similarities, Vocabulary and Information
+  have their own words and questions in each language rather than translations, so that items are
+  as natural and as hard as the English ones, and Digit Span speaks the digits in that language.
+  So in those three subtests, the daily challenge is the same for everyone playing in the same
+  language. To add a language, see `puzzleth/i18n.py`.
 - **Practice effects.** Practising test formats can raise scores on a real test. If you are
   assessed by a professional, tell them you've practised.
 - **Trademarks.** WAIS and Wechsler Adult Intelligence Scale are trademarks of their owner, NCS
@@ -155,6 +159,7 @@ Puzzles and multi-step word problems.
 python3 -m unittest discover -s tests   # or: nix-shell --run "python3 -m unittest discover -s tests"
 python3 tools/screenshots.py            # regenerate the images in docs/screenshots
 tools/make_sounds.py --voice en_US-ljspeech-high.onnx   # regenerate puzzleth/sounds (needs ffmpeg, piper)
+tools/make_sounds.py --language fr --voice fr_FR-siwis-medium.onnx   # the French digits (or ro, mihai)
 ```
 
 **Web version.** [pygbag](https://pygame-web.github.io) compiles the same code to WebAssembly.
@@ -183,7 +188,7 @@ with [PyInstaller](https://pyinstaller.org), checks that it starts, and publishe
 Releases page.
 
 ```sh
-git tag v0.0.1 && git push origin v0.0.1
+git tag v0.0.2 && git push origin v0.0.2
 ```
 
 To build it yourself on Windows, run `pip install pyinstaller pillow`, then the `pyinstaller`

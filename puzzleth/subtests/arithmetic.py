@@ -1,30 +1,53 @@
 """Arithmetic: timed mental word problems."""
 import pygame
 
-from .. import gfx
+from .. import gfx, i18n
 from .. import theme as T
 from ..widgets import Button, DigitEntry, Keypad
 from .base import ItemSubtest
 
 NAMES = ["Ava", "Ben", "Chloe", "Dev", "Elena", "Farid", "Grace", "Hugo", "Iris", "Jonah", "Kira", "Leo",
          "Maya", "Nico", "Omar", "Priya", "Quinn", "Rosa", "Sam", "Tara"]
-ITEMS = [("apples", "apple"), ("pencils", "pencil"), ("stickers", "sticker"), ("books", "book"),
-         ("marbles", "marble"), ("cookies", "cookie"), ("stamps", "stamp"), ("cards", "card")]
+ITEMS = ["apples", "pencils", "stickers", "books", "marbles", "cookies", "stamps", "cards"]
+
+# Problems are written in English and translated whole (see puzzleth/locales). Amounts with a unit are
+# filled in already worded, as each language writes money, distances and counts differently.
+
+
+def _count(n, noun):
+    """"12 apples": Romanian adds "de" from 20 on ("20 de mere")."""
+    return f"{n} {i18n.de(n) if i18n.language() == 'ro' else ''}{i18n._(noun)}"
+
+
+def _money(n):
+    return {"ro": f"{n} {i18n.de(n)}lei", "fr": f"{n}\u00a0€"}.get(i18n.language(), f"${n}")
+
+
+def _distance(n):
+    """Miles in English; the other languages use kilometres (the sums are the same)."""
+    return {"ro": f"{n} {i18n.de(n)}kilometri", "fr": f"{n}\u00a0km"}.get(i18n.language(), f"{n} miles")
+
+
+def _speed(n):
+    return {"ro": f"{n}\u00a0km/h", "fr": f"{n}\u00a0km/h"}.get(i18n.language(), f"{n} miles per hour")
 
 
 def _tier1(r):
     name = r.choice(NAMES)
-    things, _ = r.choice(ITEMS)
+    things = i18n._(r.choice(ITEMS))
     kind = r.randrange(3)
     if kind == 0:
         a, b = r.randint(2, 9), r.randint(2, 9)
-        return f"{name} has {a} {things} and gets {b} more. How many {things} does {name} have now?", a + b
+        return i18n.f("{name} has {a} {things} and gets {b} more. How many {things} does {name} have now?",
+                      name=name, a=a, b=b, things=things), a + b
     if kind == 1:
         a = r.randint(8, 15)
         b = r.randint(2, a - 2)
-        return f"{name} had {a} {things} and gave away {b}. How many are left?", a - b
+        return i18n.f("{name} had {a} {things} and gave away {b}. How many are left?",
+                      name=name, a=a, b=b, things=things), a - b
     a, b = r.randint(2, 5), r.randint(2, 5)
-    return f"There are {a} bags with {b} {things} in each bag. How many {things} are there in all?", a * b
+    return i18n.f("There are {a} bags with {b} {things} in each bag. How many {things} are there in all?",
+                  a=a, b=b, things=things), a * b
 
 
 def _tier2(r):
@@ -32,17 +55,21 @@ def _tier2(r):
     kind = r.randrange(4)
     if kind == 0:
         price, n = r.randint(2, 9), r.randint(3, 6)
-        return f"Notebooks cost ${price} each. How much do {n} notebooks cost?", price * n
+        return i18n.f("Notebooks cost {price} each. How much do {n} notebooks cost?", price=_money(price), n=n), \
+            price * n
     if kind == 1:
         n, per = r.randint(3, 8), r.choice([4, 6, 8])
         total = n * per
-        return f"{name} shares {total} cookies equally among {per} friends. How many does each friend get?", n
+        return i18n.f("{name} shares {cookies} equally among {per} friends. How many does each friend get?",
+                      name=name, cookies=_count(total, "cookies"), per=per), n
     if kind == 2:
         a, b = r.randint(12, 45), r.randint(11, 38)
-        return f"A bus has {a} passengers. At the next stop, {b} more get on. How many passengers are on the bus?", a + b
+        return i18n.f("A bus has {passengers}. At the next stop, {b} more get on. How many passengers are on the bus?",
+                      passengers=_count(a, "passengers"), b=b), a + b
     pay = r.choice([10, 20])
     cost = r.randint(3, pay - 2)
-    return f"{name} buys a toy for ${cost} and pays with a ${pay} bill. How much change does {name} get?", pay - cost
+    return i18n.f("{name} buys a toy for {cost} and pays with a {pay} bill. How much change does {name} get?",
+                  name=name, cost=_money(cost), pay=_money(pay)), pay - cost
 
 
 def _tier3(r):
@@ -52,17 +79,21 @@ def _tier3(r):
         n, price, pay = r.randint(2, 4), r.randint(3, 6), 20
         if n * price >= pay:
             n = 2
-        return (f"{name} buys {n} sandwiches at ${price} each and pays with a ${pay} bill. "
-                f"How much change does {name} receive?"), pay - n * price
+        return i18n.f("{name} buys {n} sandwiches at {price} each and pays with a {pay} bill. "
+                      "How much change does {name} receive?", name=name, n=n, price=_money(price),
+                      pay=_money(pay)), pay - n * price
     if kind == 1:
         speed, hours = r.choice([40, 50, 60]), r.randint(2, 5)
-        return f"A car travels at {speed} miles per hour. How far does it travel in {hours} hours?", speed * hours
+        return i18n.f("A car travels at {speed}. How far does it travel in {hours}?",
+                      speed=_speed(speed), hours=_count(hours, "hours")), speed * hours
     if kind == 2:
         per_day, days = r.randint(4, 9), r.choice([7, 14])
-        return f"{name} reads {per_day} pages every day. How many pages does {name} read in {days} days?", per_day * days
+        return i18n.f("{name} reads {per_day} pages every day. How many pages does {name} read in {days}?",
+                      name=name, per_day=per_day, days=_count(days, "days")), per_day * days
     total, kept = r.choice([24, 30, 36, 42]), r.choice([2, 3])
-    return (f"{name} has {total} marbles and gives one-{'half' if kept == 2 else 'third'} of them to a friend. "
-            f"How many marbles does {name} have left?"), total - total // kept
+    return i18n.f("{name} has {marbles} and gives {fraction} of them to a friend. "
+                  "How many marbles does {name} have left?", name=name, marbles=_count(total, "marbles"),
+                  fraction=i18n._("one-half" if kept == 2 else "one-third")), total - total // kept
 
 
 def _tier4(r):
@@ -71,20 +102,24 @@ def _tier4(r):
     if kind == 0:
         price = r.choice([40, 60, 80, 120, 200])
         pct = r.choice([10, 25, 50])
-        return f"A jacket costs ${price}. It is on sale for {pct}% off. What is the sale price?", price * (100 - pct) // 100
+        return i18n.f("A jacket costs {price}. It is on sale for {pct}% off. What is the sale price?",
+                      price=_money(price), pct=pct), price * (100 - pct) // 100
     if kind == 1:
         workers, hours = r.choice([(4, 6), (3, 8), (6, 4), (2, 12)])
         new = r.choice([w for w in (2, 3, 4, 6, 8, 12) if (workers * hours) % w == 0 and w != workers])
-        return (f"{workers} workers can paint a house in {hours} hours. At the same rate, how many hours "
-                f"would it take {new} workers?"), workers * hours // new
+        return i18n.f("{workers} workers can paint a house in {hours}. At the same rate, how many hours "
+                      "would it take {new} workers?", workers=workers, hours=_count(hours, "hours"),
+                      new=new), workers * hours // new
     if kind == 2:
         a, b, c = r.randint(70, 95), r.randint(70, 95), 0
         c = 3 * r.randint(78, 90) - a - b
         if not 50 <= c <= 100:
             a, b, c = 80, 90, 85
-        return f"{name} scores {a}, {b} and {c} on three tests. What is {name}'s average score?", (a + b + c) // 3
+        return i18n.f("{name} scores {a}, {b} and {c} on three tests. What is {name}'s average score?",
+                      name=name, a=a, b=b, c=c), (a + b + c) // 3
     rate, mins = r.choice([3, 4, 5]), r.choice([12, 15, 20])
-    return f"A machine fills {rate} bottles every minute. How many bottles does it fill in {mins} minutes?", rate * mins
+    return i18n.f("A machine fills {rate} bottles every minute. How many bottles does it fill in {minutes}?",
+                  rate=rate, minutes=_count(mins, "minutes")), rate * mins
 
 
 def _tier5(r):
@@ -93,24 +128,27 @@ def _tier5(r):
     if kind == 0:
         orig, inc = r.choice([(40, 20), (50, 20), (60, 20), (80, 20), (40, 25), (60, 25), (80, 25)])
         new = orig * (100 + inc) // 100
-        return f"After a {inc}% price increase, a lamp costs ${new}. What did it cost before the increase?", orig
+        return i18n.f("After a {inc}% price increase, a lamp costs {price}. What did it cost before the increase?",
+                      inc=inc, price=_money(new)), orig
     if kind == 1:
         a, b = r.choice([(2, 3), (3, 5), (1, 4), (2, 5)])
         k = r.randint(3, 8)
-        return (f"{name} and a friend split some money in the ratio {a} to {b}. "
-                f"If {name} gets ${a * k}, how much money was there in total?"), (a + b) * k
+        return i18n.f("{name} and a friend split some money in the ratio {a} to {b}. "
+                      "If {name} gets {share}, how much money was there in total?", name=name, a=a, b=b,
+                      share=_money(a * k)), (a + b) * k
     if kind == 2:
         s1, s2 = r.choice([(40, 60), (30, 60), (60, 90), (30, 45)])
         d = r.choice([120, 180, 240, 300])
         while d % s1 or d % s2:
             d += 60
-        return (f"A train travels {d} miles at {s1} miles per hour, then returns at {s2} miles per hour. "
-                f"How many hours does the round trip take?"), d // s1 + d // s2
+        return i18n.f("A train travels {distance} at {speed1}, then returns at {speed2}. "
+                      "How many hours does the round trip take?", distance=_distance(d), speed1=_speed(s1),
+                      speed2=_speed(s2)), d // s1 + d // s2
     n = r.choice([5, 6, 8])
     avg = r.randint(10, 20)
     drop = r.randint(4, avg - 2)
-    return (f"The average of {n} numbers is {avg}. When one number, {drop}, is removed, what is the sum of the "
-            f"remaining numbers?"), n * avg - drop
+    return i18n.f("The average of {n} numbers is {avg}. When one number, {drop}, is removed, what is the sum of "
+                  "the remaining numbers?", n=n, avg=avg, drop=drop), n * avg - drop
 
 
 def _tier6(r):
@@ -119,22 +157,24 @@ def _tier6(r):
     kind = r.randrange(5)
     if kind == 0:
         price = r.choice([100, 200, 300, 400, 500])
-        return (f"A ${price} bike goes up in price by 10%, then the new price is cut by 10%. "
-                f"What does it cost now?"), price * 99 // 100
+        return i18n.f("A bike that costs {price} goes up in price by 10%, then the new price is cut by 10%. "
+                      "What does it cost now?", price=_money(price)), price * 99 // 100
     if kind == 1:
         a, b = r.choice([(3, 6), (4, 12), (6, 12), (10, 15), (12, 24), (20, 30)])
-        return (f"One pipe fills a tank in {a} hours, another in {b} hours. "
-                f"How many hours do they take working together?"), a * b // (a + b)
+        return i18n.f("One pipe fills a tank in {a}, another in {b}. How many hours do they take working together?",
+                      a=_count(a, "hours"), b=_count(b, "hours")), a * b // (a + b)
     if kind == 2:
         k = r.randint(4, 12)
-        return (f"{name} is three times as old as a cousin. In {k} years, {name} will be twice as old as the "
-                f"cousin. How old is the cousin now?"), k
+        return i18n.f("{name} is three times as old as a cousin. In {years}, {name} will be twice as old as the "
+                      "cousin. How old is the cousin now?", name=name, years=_count(k, "years")), k
     if kind == 3:
         n = 6 * r.randint(4, 15)
-        return f"Half of a number plus a third of the same number is {5 * n // 6}. What is the number?", n
+        return i18n.f("Half of a number plus a third of the same number is {sum}. What is the number?",
+                      sum=5 * n // 6), n
     a, b, t = r.choice([8, 10, 12, 15]), r.choice([10, 12, 15, 18, 20]), r.randint(2, 4)
-    return (f"Two cyclists start {(a + b) * t} miles apart and ride towards each other at {a} and {b} miles "
-            f"per hour. After how many hours do they meet?"), t
+    return i18n.f("Two cyclists start {distance} apart and ride towards each other at {speed1} and {speed2}. "
+                  "After how many hours do they meet?", distance=_distance((a + b) * t), speed1=_speed(a),
+                  speed2=_speed(b)), t
 
 
 TIERS = [_tier1, _tier2, _tier3, _tier4, _tier5, _tier6]
@@ -207,10 +247,10 @@ class Arithmetic(ItemSubtest):
             e = self.keypad.handle(e) or e
         if self.entry.handle(e) == "submit" and self.entry.value:
             ok = int(self.entry.value) == self.item["ans"]
-            self.submit(1 if ok else 0, "" if ok else f"Answer: {self.item['ans']}")
+            self.submit(1 if ok else 0, "" if ok else i18n.f("Answer: {answer}", answer=self.item["ans"]))
 
     def on_timeout(self):
-        self.submit(0, f"Time limit reached. Answer: {self.item['ans']}")
+        self.submit(0, i18n.f("Time limit reached. Answer: {answer}", answer=self.item["ans"]))
 
     def update_item(self, dt):
         self.entry.update(dt)
