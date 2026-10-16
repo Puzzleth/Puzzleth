@@ -1,6 +1,6 @@
 # Builds Puzzleth.exe, a single Windows program with Python and the game inside (PyInstaller), so it
-# can be played offline without installing anything. Pushing a version tag (git tag v0.0.1 && git push
-# origin v0.0.1) also publishes it on the repository's Releases page; the tag must match VERSION in
+# can be played offline without installing anything. Pushing a version tag (git tag v0.0.2 && git push
+# origin v0.0.2) also publishes it on the repository's Releases page; the tag must match VERSION in
 # puzzleth/__init__.py. Run it by hand from the Actions tab to just get the .exe as an artifact.
 name: Windows executable
 

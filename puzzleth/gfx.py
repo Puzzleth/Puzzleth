@@ -5,6 +5,7 @@ import random
 import pygame
 import pygame.gfxdraw
 
+from . import i18n
 from . import theme as T
 
 TAU = math.tau
@@ -60,18 +61,22 @@ def fit_size(size, fits):
     return s
 
 
-def fit_width(s, size, width, bold=False, mono=False):
+def fit_width(s, size, width, bold=False, mono=False, translate=True):
     """fit_size for a single line of text that must stay within ``width``."""
+    s = i18n._(str(s)) if translate else str(s)
     return fit_size(size, lambda k: T.font(k, bold, mono).size(str(s))[0] <= width)
 
 
 def block_height(paras, width, size, bold=False, spacing=1.35, gap=0):
     """Height text_block would use for each of ``paras``, plus ``gap`` after each."""
+    paras = [i18n._(str(p)) for p in paras]
     lh = int(T.font(size, bold).get_linesize() * spacing)
     return sum(lh * len(wrap(p, size, width, bold)) + gap for p in paras)
 
 
-def render_text(s, size, color, bold=False, mono=False):
+def render_text(s, size, color, bold=False, mono=False, translate=True):
+    """``s`` rendered in the current language (see i18n), unless ``translate`` is False."""
+    s = i18n._(str(s)) if translate else str(s)
     key = (s, size, tuple(color), bold, mono)
     img = _text_cache.get(key)
     if img is None:
@@ -82,8 +87,8 @@ def render_text(s, size, color, bold=False, mono=False):
     return img
 
 
-def text(surf, s, pos, size=20, color=T.TEXT, bold=False, mono=False, anchor="topleft", alpha=255):
-    img = render_text(str(s), size, color, bold, mono)
+def text(surf, s, pos, size=20, color=T.TEXT, bold=False, mono=False, anchor="topleft", alpha=255, translate=True):
+    img = render_text(str(s), size, color, bold, mono, translate)
     rect = img.get_rect(**{anchor: (int(pos[0]), int(pos[1]))})
     if alpha < 255:
         img = img.copy()
@@ -93,6 +98,7 @@ def text(surf, s, pos, size=20, color=T.TEXT, bold=False, mono=False, anchor="to
 
 
 def wrap(s, size, width, bold=False):
+    s = i18n._(str(s))
     f = T.font(size, bold)
     lines = []
     for para in str(s).split("\n"):

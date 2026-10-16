@@ -1,7 +1,7 @@
 """Digit Span: Forward, Backward and Sequencing."""
 import pygame
 
-from .. import gfx, sound
+from .. import gfx, i18n, sound
 from .. import theme as T
 from ..widgets import DigitEntry, Keypad
 from .base import CONTINUE_KEYS, Subtest
@@ -168,22 +168,24 @@ class DigitSpan(Subtest):
     def draw(self, surf):
         name, lengths, instr = self.task
         if self.state == "intro":
-            sub = f"{name}"
+            sub = i18n._(name)
         elif self.item_i < 0:
-            sub = f"{name}  ·  sample"
+            sub = i18n.f("{task}  ·  sample", task=i18n._(name))
         else:
-            sub = f"{name}  ·  {self._length()} digits  ·  trial {self.trial + 1} of 2"
-        self.draw_header(surf, sub, right=f"Score {self.score}" if self.feedback else "")
+            sub = i18n.f("{task}  ·  {length} digits  ·  trial {trial} of 2", task=i18n._(name),
+                         length=self._length(), trial=self.trial + 1)
+        self.draw_header(surf, sub, right=i18n.f("Score {score}", score=self.score) if self.feedback else "")
         self._draw_task_track(surf)
         cx, cy = T.W // 2, (266 if T.compact else 330)
         fb_y = 376 if T.compact else 540   # (the keypad's place)
 
         if self.state == "intro":
             gfx.glow(surf, (cx, cy), 260, self.accent, 0.2)
-            gfx.text(surf, f"Digit Span {name}", (cx, cy - 60), 44, T.TEXT, bold=True, anchor="center")
+            gfx.text(surf, i18n.f("Digit Span {task}", task=i18n._(name)), (cx, cy - 60), 44, T.TEXT, bold=True,
+                     anchor="center")
             gfx.text(surf, instr, (cx, cy), 22, T.MUTED, anchor="center")
-            ex = {"Forward": "e.g.  3 · 8 · 6   →   3 8 6", "Backward": "e.g.  3 · 8 · 6   →   6 8 3",
-                  "Sequencing": "e.g.  3 · 8 · 1   →   1 3 8"}[name]
+            ex = i18n.f("e.g.  {example}", example={"Forward": "3 · 8 · 6   →   3 8 6", "Backward": "3 · 8 · 6   →   6 8 3",
+                                                    "Sequencing": "3 · 8 · 1   →   1 3 8"}[name])
             gfx.text(surf, ex, (cx, cy + 50), 22, self.accent, mono=True, anchor="center")
             gfx.text(surf, self.prompt("Press Space when ready", "Tap anywhere when ready"), (cx, cy + 140), 20,
                      T.TEXT, bold=True, anchor="center")
@@ -211,11 +213,12 @@ class DigitSpan(Subtest):
                 ok = self.fb["ok"]
                 col = T.GOOD if ok else T.BAD
                 gfx.glow(surf, (cx, fb_y + 20), 260, col, 0.15)
-                word = "Correct" if ok else "Incorrect"
-                tag = "  (sample — not scored)" if self.fb["sample"] else ("  +1" if ok else "  +0")
+                word = i18n._("Correct" if ok else "Incorrect")
+                tag = i18n._("  (sample — not scored)") if self.fb["sample"] else ("  +1" if ok else "  +0")
                 gfx.text(surf, word + tag, (cx, fb_y), 26, col, bold=True, anchor="center")
                 shown = " ".join(map(str, self.seq))
-                gfx.text(surf, f"Presented: {shown}     Answer: {' '.join(map(str, self.target))}", (cx, fb_y + 44),
+                gfx.text(surf, i18n.f("Presented: {shown}     Answer: {answer}", shown=shown,
+                                      answer=" ".join(map(str, self.target))), (cx, fb_y + 44),
                          19, T.TEXT, mono=True, anchor="center")
                 gfx.text(surf, self.prompt("Enter to continue"), (cx, fb_y + 90), 16, T.MUTED, anchor="center")
         self.draw_footer(surf, "Each task stops when both trials of one length are failed")
@@ -226,7 +229,7 @@ class DigitSpan(Subtest):
             x = x0 + i * 240
             active = i == self.task_i
             col = self.accent if active else (T.MUTED if i < self.task_i else T.DIM)
-            gfx.text(surf, name.upper(), (x, 92), 14, col, bold=True, anchor="center")
+            gfx.text(surf, i18n.upper(name), (x, 92), 14, col, bold=True, anchor="center")
             n = len(lengths)
             for k in range(n):
                 done = i < self.task_i and k < self.longest[i] - 1 or (active and k < self.item_i)

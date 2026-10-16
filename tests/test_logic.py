@@ -22,7 +22,7 @@ import pygame  # noqa: E402
 pygame.init()
 pygame.display.set_mode((1280, 800))
 
-from puzzleth import challenge, glyphs, scoring  # noqa: E402
+from puzzleth import challenge, glyphs, i18n, scoring, version_label  # noqa: E402
 from puzzleth.storage import Profile  # noqa: E402
 from puzzleth.content import verbal as bank  # noqa: E402
 from puzzleth.subtests import ORDER, arithmetic, block_design as bd  # noqa: E402
@@ -31,6 +31,209 @@ from puzzleth.subtests.digit_span import DigitSpan  # noqa: E402
 from puzzleth.subtests.matrix_reasoning import MatrixReasoning, _visible_key  # noqa: E402
 from puzzleth.subtests.speed import Coding, SymbolSearch  # noqa: E402
 from puzzleth.subtests.visual_puzzles import VisualPuzzles, rotations, tiles  # noqa: E402
+
+
+class Localization(unittest.TestCase):
+    OTHER = ("ro", "fr")
+
+    def setUp(self):
+        self.previous = i18n.language()
+
+    def tearDown(self):
+        i18n.set_language(self.previous)
+
+    def test_supported_languages_and_fallback(self):
+        self.assertEqual([code for code, _ in i18n.LANGUAGES], ["en", "ro", "fr"])
+        self.assertEqual(i18n.translate("Settings", "ro"), "Setări")
+        self.assertEqual(i18n.translate("Settings", "fr"), "Paramètres")
+        self.assertEqual(i18n.translate("Settings", "en"), "Settings")
+        self.assertEqual(i18n.translate("Untranslated", "ro"), "Untranslated")
+        i18n.set_language("xx")
+        self.assertEqual(i18n.language(), "en")
+
+    def test_game_text_helpers_use_the_active_language(self):
+        from puzzleth import gfx
+        i18n.set_language("fr")
+        self.assertEqual(gfx.wrap("This is not an actual IQ test", 20, 800), ["Ceci n'est pas un vrai test de QI"])
+        self.assertEqual(i18n.f("Answer: {answer}", answer=42), "Réponse : 42")
+        self.assertEqual(i18n.upper("Similarities"), "SIMILITUDES")
+        self.assertEqual(i18n.abbr("VCI"), "ICV")
+        self.assertEqual(i18n.decimal(4.25, 1), "4,2")
+        i18n.set_language("ro")
+        self.assertEqual(gfx.wrap("Click an option or press 1–5.", 20, 800), ["Dă clic pe o variantă sau apasă 1–5."])
+        self.assertEqual(i18n.abbr("BD"), "CU")
+        # a player's name is never taken for a label to translate
+        self.assertEqual(gfx.render_text("LEARN", 20, (255, 255, 255)).get_width(),
+                         gfx.render_text("ÎNVAȚĂ", 20, (255, 255, 255), translate=False).get_width())
+        self.assertNotEqual(gfx.render_text("LEARN", 20, (255, 255, 255), translate=False).get_width(),
+                            gfx.render_text("LEARN", 20, (255, 255, 255)).get_width())
+
+    def test_plurals(self):
+        i18n.set_language("en")
+        self.assertEqual(i18n.n(1, "{n} attempt", "{n} attempts"), "1 attempt")
+        self.assertEqual(i18n.n(0, "{n} attempt", "{n} attempts"), "0 attempts")
+        i18n.set_language("fr")
+        self.assertEqual(i18n.n(0, "{n} attempt", "{n} attempts"), "0 tentative")   # French: 0 is singular
+        self.assertEqual(i18n.n(2, "{n} attempt", "{n} attempts"), "2 tentatives")
+        i18n.set_language("ro")
+        self.assertEqual(i18n.n(1, "{n} attempt", "{n} attempts"), "1 încercare")
+        self.assertEqual(i18n.n(19, "{n} attempt", "{n} attempts"), "19 încercări")
+        self.assertEqual(i18n.n(20, "{n} attempt", "{n} attempts"), "20 de încercări")
+        self.assertEqual(i18n.n(101, "{n} attempt", "{n} attempts"), "101 încercări")
+        self.assertEqual(i18n.n(100, "{n} attempt", "{n} attempts"), "100 de încercări")
+
+    def test_catalogs_keep_the_template_fields(self):
+        import string
+        from puzzleth.locales import fr, ro
+
+        def fields(s):
+            return {f for _, f, _, _ in string.Formatter().parse(s) if f}
+        for catalog in (ro.STRINGS, fr.STRINGS):
+            for key, value in catalog.items():
+                pairs = zip(key, value) if isinstance(key, tuple) else [(key, value)]
+                for english, translated in pairs:
+                    self.assertTrue(translated.strip(), english)
+                    # a singular may say "one" instead of {n}; Romanian adds {de}
+                    self.assertLessEqual(fields(translated) - {"de"}, fields(english), english)
+                    self.assertLessEqual(fields(english) - {"n"}, fields(translated), english)
+
+    def test_subtests_and_scores_are_translated(self):
+        from puzzleth import theme
+        texts = list(theme.INDEX_NAMES.values())
+        for cls in ORDER:
+            texts += [cls.name, cls.measures] + list(cls.rules) + list(cls.controls)
+        texts += [scoring.classification(v) for v in range(40, 161)]
+        texts += [scoring.scaled_label(s) for s in range(1, 20)]
+        texts += [t for t in arithmetic.ITEMS]
+        from puzzleth.locales import fr, ro
+        for language, catalog in (("ro", ro.STRINGS), ("fr", fr.STRINGS)):
+            for text in texts:
+                self.assertIn(text, catalog, (language, text))
+            for code in ("BD", "SI", "DS", "MR", "VC", "AR", "SS", "VP", "IN", "CD", "VCI", "PRI", "WMI", "PSI"):
+                i18n.set_language(language)
+                self.assertTrue(i18n.abbr(code))
+
+    def test_learn_pages_match_in_every_language(self):
+        from puzzleth.content import learn
+        for language in self.OTHER:
+            topics = learn.topics(language)
+            self.assertEqual([k for k, _, _ in topics], [k for k, _, _ in learn.TOPICS])
+            for (_, _, pages), (_, _, english) in zip(topics, learn.TOPICS):
+                self.assertEqual(len(pages), len(english))
+                for (_, paras), (_, english_paras) in zip(pages, english):
+                    self.assertEqual([p.startswith("## ") for p in paras],
+                                     [p.startswith("## ") for p in english_paras])
+
+    def test_each_language_has_its_own_verbal_items(self):
+        for language in ("en",) + self.OTHER:
+            b = bank.bank(language)
+            self.assertEqual(sorted(b.SIMILARITIES), sorted(bank.SIMILARITIES))
+            for tier in range(1, 7):
+                self.assertGreaterEqual(len(b.SIMILARITIES[tier]), 3)
+                self.assertGreaterEqual(len(b.VOCABULARY[tier]), 5)
+                self.assertGreaterEqual(len(b.INFORMATION[tier]), 5)
+                for members, two, one, zero in b.SIMILARITIES[tier]:
+                    self.assertGreaterEqual(len(set(members)), 2)
+                    self.assertEqual(len({two, one, zero}), 3)
+                words = [w for w, _, _ in b.VOCABULARY[tier]]
+                self.assertEqual(len(set(words)), len(words))
+                for q, ans, wrong in b.INFORMATION[tier]:
+                    self.assertNotIn(ans, wrong)
+                    self.assertEqual(len(set(wrong)), 3)
+        self.assertIsNot(bank.bank("ro"), bank.bank("fr"))
+
+    def test_items_follow_the_language(self):
+        app = FakeApp()
+        for language in self.OTHER:
+            i18n.set_language(language)
+            words = {w for tier in bank.bank(language).VOCABULARY.values() for w, _, _ in tier}
+            questions = {q for tier in bank.bank(language).INFORMATION.values() for q, _, _ in tier}
+            for n in range(0, 27):
+                self.assertIn(ORDER[4](app, seed=n).make_item(min(n, 30))["word"], words)
+                self.assertIn(ORDER[8](app, seed=n).make_item(n)["q"], questions)
+
+    def test_arithmetic_problems_in_every_language(self):
+        rng = random.Random(3)
+        for language in ("en",) + self.OTHER:
+            i18n.set_language(language)
+            for tier in arithmetic.TIERS:
+                for _ in range(200):
+                    q, ans = tier(rng)
+                    self.assertIsInstance(ans, int)
+                    self.assertNotIn("{", q)
+                    if language != "en":
+                        self.assertNotIn("$", q)
+                        self.assertNotIn("miles", q)
+                    if language == "ro":   # "20 de lei", never "20 lei"
+                        for number, de in re.findall(r"\b(\d+) (de )?(?:lei|kilometri|ore|zile|minute|ani|fursecuri|"
+                                                     r"pasageri|bile)\b", q):
+                            self.assertEqual(bool(de), bool(i18n.de(int(number))), q)
+
+    def test_digits_are_spoken_in_every_language(self):
+        root = os.path.join(ROOT, "puzzleth", "sounds")
+        for language in self.OTHER:
+            for d in range(1, 10):
+                self.assertTrue(os.path.isfile(os.path.join(root, language, f"digit{d}.ogg")), (language, d))
+
+    def test_screens_draw_in_every_language(self):
+        """Every screen draws with each language's text, which also catches a missing template field."""
+        from puzzleth import scenes
+        from puzzleth.app import App
+        for language in ("en",) + self.OTHER:
+            app = App.__new__(App)
+            app.profile = Profile()
+            app.touch = False
+            app.display = None
+            app.online = type("Offline", (), {"account": lambda self: None, "rank": lambda self, c: None,
+                                              "joining": None, "error": None})()
+            i18n.set_language(language)
+            surf = pygame.Surface((1280, 800))
+            for scene in (scenes.LanguageScene(app), scenes.DisclaimerScene(app), scenes.SettingsScene(app),
+                          scenes.LearnScene(app), scenes.IntroScene(app, ORDER[0]), scenes.PauseOverlay(app),
+                          scenes.SubtestResultScene(app, ORDER[2], 20, 11, 9, {"forward": 8, "backward": 7,
+                                                                                "sequencing": 6})):
+                scene.draw(surf)
+
+    def test_web_fonts_keep_every_character_of_the_translations(self):
+        """The web build cuts the fonts down to the ranges in build_web.sh; a translated character outside
+        them would be drawn as a box in the browser."""
+        from puzzleth.content import learn
+        from puzzleth.locales import fr, ro
+        spec = re.search(r"--unicodes='([^']+)'", open(os.path.join(ROOT, "tools", "build_web.sh")).read()).group(1)
+        ranges = [[int(x, 16) for x in part[2:].split("-")] for part in spec.split(",")]
+        texts = []
+
+        def collect(x):
+            if isinstance(x, str):
+                texts.append(x)
+            elif isinstance(x, (list, tuple, dict)):
+                for y in (x.items() if isinstance(x, dict) else x):
+                    collect(y)
+        for language in self.OTHER:
+            collect([ro.STRINGS, fr.STRINGS, learn.topics(language)])
+            b = bank.bank(language)
+            collect([b.SIMILARITIES, b.SIMILARITIES_GENERIC_ZERO, b.VOCABULARY, b.INFORMATION])
+        for ch in set("".join(texts)):
+            self.assertTrue(any(lo <= ord(ch) <= (hi[0] if hi else lo) for lo, *hi in ranges), repr(ch))
+
+    def test_language_is_saved_as_a_device_setting(self):
+        previous = os.environ.get("PUZZLETH_HOME")
+        with tempfile.TemporaryDirectory() as directory:
+            os.environ["PUZZLETH_HOME"] = os.path.join(directory, "profile.json")
+            try:
+                profile = Profile()
+                self.assertIsNone(profile.settings["language"])   # asked on the first start
+                profile.settings["language"] = "fr"
+                profile.save()
+                self.assertEqual(Profile().settings["language"], "fr")
+            finally:
+                if previous is None:
+                    os.environ.pop("PUZZLETH_HOME", None)
+                else:
+                    os.environ["PUZZLETH_HOME"] = previous
+
+    def test_version_label(self):
+        self.assertEqual(version_label(), "v0.0.2 PRE-ALPHA")
 
 
 class FakeApp:

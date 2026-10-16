@@ -11,6 +11,8 @@ only: it says how hard a puzzle you can solve here about half the time.
 import datetime
 import random
 
+from . import i18n
+
 SET_LENGTH = 10
 START_RATING = 1000
 FLOOR = 100
@@ -107,7 +109,7 @@ class RatedLadder(Ladder):
         self.played += 1
 
     def label(self):
-        return "Rated set"
+        return i18n._("Rated set")
 
 
 class DailyLadder(Ladder):
@@ -128,8 +130,9 @@ class DailyLadder(Ladder):
         return f"daily-{self.day.isoformat()}-{self.position}"
 
     def label(self):
-        return f"Daily #{self.number}"
+        return i18n.f("Daily #{n}", n=self.number)
 
     def share_text(self):
         squares = "".join("\U0001F7E9" if s else "\U0001F7E5" for _, s in self.results)
-        return f"Puzzleth Daily #{self.number} · {self.cls.name}\n{self.solved}/{self.length} {squares}"
+        return i18n.f("Puzzleth Daily #{n} · {subtest}", n=self.number, subtest=i18n._(self.cls.name)) + \
+            f"\n{self.solved}/{self.length} {squares}"

@@ -5,9 +5,9 @@ written to mirror how a WAIS examiner awards 2, 1 or 0 points.
 """
 import pygame
 
-from .. import gfx
+from .. import gfx, i18n
 from .. import theme as T
-from ..content import verbal as bank
+from ..content import verbal
 from ..widgets import OptionCard
 from .base import ItemSubtest
 
@@ -19,6 +19,7 @@ class ChoiceSubtest(ItemSubtest):
     tiers = 6
 
     def setup(self):
+        self.bank = verbal.bank(i18n.language())
         self.used = set()
         self.cards = []
         self.choice = None
@@ -62,7 +63,7 @@ class ChoiceSubtest(ItemSubtest):
         if self.revealing_after_submit():
             for j, card in enumerate(self.cards):
                 p = self.item["options"][j][1]
-                card.tag = f"{p} pt" + ("s" if p != 1 else "") if best > 1 else ("correct" if p else "")
+                card.tag = i18n.n(p, "{n} pt", "{n} pts") if best > 1 else (i18n._("correct") if p else "")
                 if j == i:
                     card.state = "good" if p == best else ("partial" if p > 0 else "bad")
                 elif p == best:
@@ -77,7 +78,7 @@ class ChoiceSubtest(ItemSubtest):
         return self.feedback or self.is_sample
 
     def explain(self, pts, best_txt):
-        return "" if pts == self.item_max(self.cur) else f"Best answer: {best_txt}"
+        return "" if pts == self.item_max(self.cur) else i18n.f("Best answer: {answer}", answer=best_txt)
 
     def handle_item(self, e):
         if e.type == pygame.KEYDOWN and e.key in KEYS and KEYS[e.key] < len(self.cards):
@@ -131,19 +132,19 @@ class Similarities(ChoiceSubtest):
 
     def generate(self, n):
         tier = self.tier(n)
-        cats = bank.SIMILARITIES[tier]
+        cats = self.bank.SIMILARITIES[tier]
         members, two, one, near = self.pick(cats, key=lambda c: c[1])
         a, b = self.rng.sample(members, 2)
-        generic = self.rng.choice(bank.SIMILARITIES_GENERIC_ZERO)
+        generic = self.rng.choice(self.bank.SIMILARITIES_GENERIC_ZERO)
         return {"a": a, "b": b,
                 "options": [(two, 2), (one, 1), (near, 0), (generic, 0)]}
 
     def explain(self, pts, best_txt):
         if pts == 2:
-            return "Abstract category — exactly what earns full credit."
+            return i18n._("Abstract category — exactly what earns full credit.")
         if pts == 1:
-            return f"True, but concrete. 2-point answer: {best_txt}"
-        return f"A 2-point answer: {best_txt}"
+            return i18n.f("True, but concrete. 2-point answer: {answer}", answer=best_txt)
+        return i18n.f("A 2-point answer: {answer}", answer=best_txt)
 
     def draw_prompt(self, surf):
         cy = self.prompt_y()
@@ -180,7 +181,7 @@ class Vocabulary(ChoiceSubtest):
 
     def generate(self, n):
         tier = self.tier(n)
-        words = bank.VOCABULARY[tier]
+        words = self.bank.VOCABULARY[tier]
         word, precise, partial = self.pick(words, key=lambda w: w[0])
         others = [w for w in words if w[0] != word]
         distract = self.rng.sample(others, 2)
@@ -188,10 +189,10 @@ class Vocabulary(ChoiceSubtest):
 
     def explain(self, pts, best_txt):
         if pts == 2:
-            return "Precise definition — full credit."
+            return i18n._("Precise definition — full credit.")
         if pts == 1:
-            return f"Vague or partial. Precise: {best_txt}"
-        return f"Meaning: {best_txt}"
+            return i18n.f("Vague or partial. Precise: {answer}", answer=best_txt)
+        return i18n.f("Meaning: {answer}", answer=best_txt)
 
     def draw_prompt(self, surf):
         cy = self.prompt_y()
@@ -219,11 +220,11 @@ class Information(ChoiceSubtest):
     controls = ["Click an answer or press 1–4."]
 
     def generate(self, n):
-        q, ans, wrong = self.pick(bank.INFORMATION[self.tier(n)], key=lambda x: x[0])
+        q, ans, wrong = self.pick(self.bank.INFORMATION[self.tier(n)], key=lambda x: x[0])
         return {"q": q, "options": [(ans, 1)] + [(w, 0) for w in wrong]}
 
     def explain(self, pts, best_txt):
-        return "" if pts else f"Answer: {best_txt}"
+        return "" if pts else i18n.f("Answer: {answer}", answer=best_txt)
 
     def draw_prompt(self, surf):
         cy = self.prompt_y()

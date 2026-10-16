@@ -2,13 +2,18 @@
 """Regenerate the bundled sounds in puzzleth/sounds/.
 
 Sound effects are synthesized here from sine waves. The spoken digits come from Piper
-(https://github.com/rhasspy/piper) with its LJSpeech voice, whose training data is public domain.
+(https://github.com/rhasspy/piper): English with its LJSpeech voice, whose training data is public
+domain, Romanian with its Mihai voice (CC0 data) and French with its SIWIS voice (CC BY 4.0 data).
 Needs ffmpeg, and for the digits also the piper command and the voice model:
 
     tools/make_sounds.py --voice path/to/en_US-ljspeech-high.onnx
+    tools/make_sounds.py --language ro --voice path/to/ro_RO-mihai-medium.onnx
+    tools/make_sounds.py --language fr --voice path/to/fr_FR-siwis-medium.onnx
     tools/make_sounds.py                       # effects only, keeps the existing digits
 
-The voice model is at huggingface.co/rhasspy/piper-voices (en/en_US/ljspeech/high).
+The voice models are at huggingface.co/rhasspy/piper-voices (en/en_US/ljspeech/high,
+ro/ro_RO/mihai/medium, fr/fr_FR/siwis/medium). English digits go in puzzleth/sounds/, the others in
+puzzleth/sounds/<language>/, where they replace the English ones while that language is chosen.
 To use your own sound instead, see puzzleth/sounds/README.md.
 """
 import argparse
@@ -22,7 +27,11 @@ import wave
 
 OUT = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "puzzleth", "sounds")
 RATE = 44100
-DIGITS = ["one", "two", "three", "four", "five", "six", "seven", "eight", "nine"]
+DIGITS = {
+    "en": ["one", "two", "three", "four", "five", "six", "seven", "eight", "nine"],
+    "ro": ["unu", "doi", "trei", "patru", "cinci", "șase", "șapte", "opt", "nouă"],
+    "fr": ["un", "deux", "trois", "quatre", "cinq", "six", "sept", "huit", "neuf"],
+}
 
 
 def silence(dur):
@@ -109,8 +118,8 @@ def read_wav(path):
     return [v / 32768 for v in data], rate
 
 
-def to_ogg(wav, name):
-    dst = os.path.join(OUT, name + ".ogg")
+def to_ogg(wav, name, out=OUT):
+    dst = os.path.join(out, name + ".ogg")
     subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-i", wav, "-c:a", "libvorbis", "-q:a", "4", dst],
                    check=True)
     return dst
@@ -138,22 +147,26 @@ def speak(model, word, tmp, length_scale):
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--voice", help="Piper .onnx voice model; regenerates the spoken digits")
+    ap.add_argument("--language", choices=sorted(DIGITS), default="en", help="language of the spoken digits")
     ap.add_argument("--length-scale", type=float, default=0.9, help="Piper speaking speed (smaller is faster)")
     args = ap.parse_args()
     os.makedirs(OUT, exist_ok=True)
+    digits_out = OUT if args.language == "en" else os.path.join(OUT, args.language)
+    os.makedirs(digits_out, exist_ok=True)
     with tempfile.TemporaryDirectory() as tmp:
-        for name, samples in effects().items():
-            wav = os.path.join(tmp, name + ".wav")
-            write_wav(wav, samples)
-            print(to_ogg(wav, name))
+        if args.language == "en":   # the effects are the same in every language
+            for name, samples in effects().items():
+                wav = os.path.join(tmp, name + ".wav")
+                write_wav(wav, samples)
+                print(to_ogg(wav, name))
         if args.voice:
-            for d, word in enumerate(DIGITS, 1):
+            for d, word in enumerate(DIGITS[args.language], 1):
                 s, rate = speak(args.voice, word, tmp, args.length_scale)
                 if len(s) / rate > 0.7:   # each digit must fit in its one-second slot
                     print(f"warning: '{word}' lasts {len(s) / rate:.2f} s")
                 wav = os.path.join(tmp, f"digit{d}.wav")
                 write_wav(wav, s, rate)
-                print(to_ogg(wav, f"digit{d}"), f"{len(s) / rate:.2f} s")
+                print(to_ogg(wav, f"digit{d}", digits_out), f"{len(s) / rate:.2f} s")
 
 
 if __name__ == "__main__":
