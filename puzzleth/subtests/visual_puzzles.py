@@ -4,7 +4,7 @@ from itertools import combinations
 import pygame
 
 from ..display import mouse_pos
-from .. import gfx, sound
+from .. import gfx, i18n, sound
 from .. import theme as T
 from ..widgets import Button
 from .base import ItemSubtest
@@ -246,7 +246,7 @@ class VisualPuzzles(ItemSubtest):
             return
         ok = sel == self.item["correct"]
         want = ", ".join(str(i + 1) for i in sorted(self.item["correct"]))
-        self.submit(1 if ok else 0, "" if ok else f"Correct pieces: {want}")
+        self.submit(1 if ok else 0, "" if ok else i18n.f("Correct pieces: {pieces}", pieces=want))
 
     def handle_item(self, e):
         if self.confirm_btn.enabled and self.confirm_btn.handle(e):
@@ -266,7 +266,7 @@ class VisualPuzzles(ItemSubtest):
 
     def on_timeout(self):
         want = ", ".join(str(i + 1) for i in sorted(self.item["correct"]))
-        self.submit(0, f"Time limit reached. Correct pieces: {want}")
+        self.submit(0, i18n.f("Time limit reached. Correct pieces: {pieces}", pieces=want))
 
     # ---------------------------------------------------------- drawing
     def _draw_cells(self, surf, cells, origin, u, color, edge, owner=None, shades=None):
@@ -323,5 +323,5 @@ class VisualPuzzles(ItemSubtest):
             if n == 3:
                 self.confirm_btn.draw(surf)
             else:
-                gfx.text(surf, f"Select {3 - n} more piece{'s' if 3 - n != 1 else ''}",
+                gfx.text(surf, i18n.n(3 - n, "Select {n} more piece", "Select {n} more pieces"),
                          self.confirm_btn.rect.center, 17, T.MUTED, anchor="center")

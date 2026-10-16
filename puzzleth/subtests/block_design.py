@@ -2,7 +2,7 @@
 import pygame
 
 from ..display import mouse_pos
-from .. import gfx, sound
+from .. import gfx, i18n, sound
 from .. import theme as T
 from ..widgets import Button
 from .base import ItemSubtest
@@ -203,9 +203,9 @@ class BlockDesign(ItemSubtest):
                 lim = self.time_limit(self.cur)
                 bonus = 3 if t <= lim * 0.3 else 2 if t <= lim * 0.45 else 1 if t <= lim * 0.6 else 0
                 pts = 4 + bonus
-                expl = f"Completed in {t:.1f} s — speed bonus +{bonus}"
+                expl = i18n.f("Completed in {seconds} s — speed bonus +{bonus}", seconds=i18n.decimal(t), bonus=bonus)
             else:
-                expl = f"Completed in {t:.1f} s"
+                expl = i18n.f("Completed in {seconds} s", seconds=i18n.decimal(t))
             self.submit(pts, expl)
 
     def handle_item(self, e):

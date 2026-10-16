@@ -4,10 +4,10 @@ import datetime
 
 import pygame
 
-from . import gfx, online, scoring, sound, version_label, web
+from . import gfx, i18n, online, scoring, sound, version_label, web
 from . import theme as T
 from .challenge import FLOOR, SET_LENGTH, daily_number
-from .content.learn import TOPICS
+from .content import learn
 from .display import mouse_pos
 from .skilltree import SkillTree
 from .storage import CODE_CHARS, MAX_PLAYERS, NAME_CHARS, NAME_LEN
@@ -46,16 +46,16 @@ def tree_tooltip(
         col = T.INDEX_COLORS[cls.index]
         lines = [cls.measures]
         s = scaled.get(key)
+        tries = i18n.n(attempts.get(key, 0), "{n} attempt", "{n} attempts")
         if s and hide:
-            lines.append(
-                f"Measured  ·  scores hidden  ·  {attempts.get(key, 0)} attempt(s)"
-            )
+            lines.append(i18n.f("Measured  ·  scores hidden  ·  {attempts}", attempts=tries))
         elif s:
-            lines.append(f"Scaled score {s} / 19  ·  {scoring.scaled_label(s)}")
+            lines.append(i18n.f("Scaled score {score} / 19  ·  {label}", score=s,
+                                label=i18n._(scoring.scaled_label(s))))
             lines.append(
-                f"Percentile ≈ {scoring.scaled_percentile(s):.0f}"
+                i18n.f("Percentile ≈ {percentile}", percentile=round(scoring.scaled_percentile(s)))
                 + (
-                    f"  ·  raw {raw[key]} / {cls.max_raw}"
+                    i18n.f("  ·  raw {raw} / {max}", raw=raw[key], max=cls.max_raw)
                     if raw.get(key) is not None
                     else ""
                 )
@@ -63,28 +63,26 @@ def tree_tooltip(
         else:
             lines.append("Not yet measured")
         if best.get(key) and not hide:
-            lines.append(
-                f"Personal best {best[key]}  ·  {attempts.get(key, 0)} attempt(s)"
-            )
+            lines.append(i18n.f("Personal best {score}  ·  {attempts}", score=best[key], attempts=tries))
         if getattr(cls, "challenge", False):
             r = ratings.get(key)
             lines.append(
-                f"Puzzle rating {r['rating']:.0f}  ·  peak {r['peak']:.0f}"
+                i18n.f("Puzzle rating {rating}  ·  peak {peak}", rating=round(r["rating"]), peak=round(r["peak"]))
                 if r
                 else "Rated puzzle sets available"
             )
-        _tooltip(surf, pos, f"{cls.name}  ({cls.index})", lines, col)
+        _tooltip(surf, pos, f"{i18n._(cls.name)}  ({i18n.abbr(cls.index)})", lines, col)
     elif key in scoring.INDEX_SUBTESTS:
         col = T.INDEX_COLORS[key]
-        names = ", ".join(BY_CODE[c].name for c in scoring.INDEX_SUBTESTS[key])
+        names = ", ".join(i18n._(BY_CODE[c].name) for c in scoring.INDEX_SUBTESTS[key])
         lines = [names]
         if key in indexes and hide:
             lines.append("Measured  ·  scores hidden")
         elif key in indexes:
             v = indexes[key]
             lines += [
-                f"Index score {v}  ·  {scoring.classification(v)}",
-                f"Percentile ≈ {scoring.percentile(v):.0f}",
+                i18n.f("Index score {score}  ·  {label}", score=v, label=i18n._(scoring.classification(v))),
+                i18n.f("Percentile ≈ {percentile}", percentile=round(scoring.percentile(v))),
             ]
         else:
             lines.append("Complete all of its subtests to compute it")
@@ -95,8 +93,8 @@ def tree_tooltip(
             lines.append("Measured  ·  scores hidden")
         elif fsiq:
             lines += [
-                f"{fsiq}  ·  {scoring.classification(fsiq)}",
-                f"Percentile ≈ {scoring.percentile(fsiq):.0f}",
+                f"{fsiq}  ·  {i18n._(scoring.classification(fsiq))}",
+                i18n.f("Percentile ≈ {percentile}", percentile=round(scoring.percentile(fsiq))),
                 "Training estimate, not a real IQ",
             ]
         else:
@@ -136,6 +134,43 @@ DISCLAIMER = [
     "Practising test formats can raise scores on a real test. If you take a clinical assessment, tell "
     "the examiner you have practised.",
 ]
+
+
+class LanguageScene(Scene):
+    """First-run language choice, before any game content is shown."""
+
+    def __init__(self, app, done=None):
+        super().__init__(app)
+        self.app = app
+        self.done = done
+        self.buttons = []
+        y = T.H // 2 - 20
+        for code, name in i18n.LANGUAGES:
+            self.buttons.append(Button(
+                (T.W // 2 - 200, y, 400, 56), name,
+                lambda code=code: self._choose(code), T.ACCENT, size=20,
+            ))
+            y += 70
+
+    def _choose(self, code):
+        self.app.profile.settings["language"] = code
+        self.app.profile.save()
+        self.app._language_chosen(code, self.done)
+
+    def draw(self, surf):
+        # every language at once: nothing is chosen yet
+        y = T.H // 2 - 250
+        for code, _ in i18n.LANGUAGES:
+            gfx.text(surf, i18n.translate("Choose your language", code), (T.W // 2, y), 28, T.TEXT, bold=True,
+                     anchor="center", translate=False)
+            y += 40
+        if self.done:   # from Settings
+            hint = "You can change it again any time in Settings."
+        else:
+            hint = "The game will use this language. You can change it later in Settings."
+        gfx.text(surf, hint, (T.W // 2, T.H // 2 + 3 * 70), gfx.fit_width(hint, 16, T.W - 80), T.MUTED,
+                 anchor="center")
+        super().draw(surf)
 
 
 class DisclaimerScene(Scene):
@@ -212,8 +247,8 @@ class DisclaimerScene(Scene):
 def _spread(buttons, left, right, y, h, gap=10):
     """Lay buttons out in a row from ``left`` to ``right``, each as wide as its label needs, so that
     any shrinking to fit is shared out evenly."""
-    widest = {"Daily": "Daily  10/10"}   # its label grows once today's challenge is played
-    need = [T.font(b.size, True).size(widest.get(b.label, b.label))[0] + 32 for b in buttons]
+    widest = {"Daily": i18n.f("Daily  {solved}/10", solved=10)}   # its label grows once today's challenge is played
+    need = [T.font(b.size, True).size(i18n._(widest.get(b.label, b.label)))[0] + 32 for b in buttons]
     room = right - left - gap * (len(buttons) - 1)
     x = left
     for b, n in zip(buttons, need):
@@ -279,6 +314,7 @@ class MenuScene(Scene):
             T.ACCENT,
             hotkeys=(pygame.K_p,),
             size=17,
+            translate=False,
         )
         if T.compact:   # all in one row at the top, the small ones along the bottom
             self.begin.rect.update(T.W - 830, 12, 310, 48)
@@ -338,7 +374,7 @@ class MenuScene(Scene):
         self.ratings = {c: p.rating(c) for c in BY_CODE if p.rating(c)}
         today = datetime.date.today()
         done = p.daily_result(today)
-        self.daily_btn.label = f"Daily  {done['solved']}/10" if done else "Daily"
+        self.daily_btn.label = i18n.f("Daily  {solved}/10", solved=done["solved"]) if done else "Daily"
         self.streak = p.daily_streak(today)
 
     def handle_event(self, e):
@@ -361,9 +397,12 @@ class MenuScene(Scene):
 
     def draw(self, surf):
         n = len(self.scaled)
-        line = f"{n} / 10 skills measured  ·  {'tap' if self.app.touch else 'click'} any node to train it"
+        if self.app.touch:
+            line = i18n.f("{n} / 10 skills measured  ·  tap any node to train it", n=n)
+        else:
+            line = i18n.f("{n} / 10 skills measured  ·  click any node to train it", n=n)
         if self.streak:
-            line += f"  ·  daily streak {self.streak}"
+            line += i18n.f("  ·  daily streak {streak}", streak=self.streak)
         if T.compact:   # the tree needs the room of the subtitle
             gfx.text(surf, "PUZZLETH", (40, 14), 34, T.TEXT, bold=True)
             gfx.text(surf, line, (42, 64), gfx.fit_width(line, 15, self.begin.rect.x - 60), T.DIM)
@@ -562,7 +601,8 @@ class NameEntryScene(Scene):
             gfx.panel(surf, r, gfx.lerp_color(T.PANEL, T.ACCENT, 0.12 if filled else 0), border, radius=12,
                       border_w=2 if active else 1)
             if filled:
-                gfx.text(surf, self.value[i], r.center, 52, T.TEXT, bold=True, mono=True, anchor="center")
+                gfx.text(surf, self.value[i], r.center, 52, T.TEXT, bold=True, mono=True, anchor="center",
+                         translate=False)
             elif active and self.pick is not None:
                 gfx.text(surf, self.CHARS[self.pick], r.center, 52, T.ACCENT, bold=True, mono=True, anchor="center")
             elif active and int(self.t * 2) % 2 == 0:
@@ -622,7 +662,7 @@ class RestoreScene(NameEntryScene):
         if self.pick is not None:
             self._type(self.CHARS[self.pick])
         if len(self.value) < self.LENGTH:
-            self.error = f"Enter all {self.LENGTH} characters of the code"
+            self.error = i18n.f("Enter all {n} characters of the code", n=self.LENGTH)
             sound.play("wrong")
             return
         self.busy = True
@@ -656,7 +696,11 @@ def _last_played(ts):
     if not ts:
         return "Not played yet"
     days = (datetime.date.today() - datetime.date.fromtimestamp(ts)).days
-    return "Last played today" if days <= 0 else "Last played yesterday" if days == 1 else f"Last played {days} days ago"
+    if days <= 0:
+        return "Last played today"
+    if days == 1:
+        return "Last played yesterday"
+    return i18n.n(days, "Last played {n} day ago", "Last played {n} days ago")
 
 
 class PlayersScene(Scene):
@@ -757,14 +801,15 @@ class PlayersScene(Scene):
             gfx.panel(surf, r, fill, border, radius=16, border_w=2 if current else 1)
             if not self.app.touch:
                 gfx.text(surf, str(i + 1), (r.x + 22, r.centery), 15, T.DIM, bold=True, anchor="center")
-            gfx.text(surf, name, (r.x + 44, r.centery), 34, T.TEXT, bold=True, mono=True, anchor="midleft")
+            gfx.text(surf, name, (r.x + 44, r.centery), 34, T.TEXT, bold=True, mono=True, anchor="midleft",
+                     translate=False)
             data = p.player(name)
             if name == self.armed:
                 lines = ["Tap again to remove", "all of this player's progress"]
                 cols = (T.BAD, T.MUTED)
             else:
                 measured = sum(1 for e in data["subtests"].values() if e["history"])
-                lines = [f"{measured} / 10 skills measured",
+                lines = [i18n.f("{n} / 10 skills measured", n=measured),
                          "Playing now" if name == p.current else _last_played(data.get("seen"))]
                 cols = (T.TEXT, T.ACCENT if name == p.current else T.MUTED)
             lh = T.font(15).get_linesize()
@@ -809,7 +854,7 @@ class IntroScene(Scene):
             and getattr(cls, "challenge", False)
         ):
             r = app.profile.rating(cls.code)
-            label = f"Rated set  ·  {r['rating']:.0f}" if r else "Rated set"
+            label = i18n.f("Rated set  ·  {rating}", rating=round(r["rating"])) if r else "Rated set"
             self.rated = Button(
                 (T.W - 570, T.H - 110, 250, 56),
                 label,
@@ -843,7 +888,7 @@ class IntroScene(Scene):
             n = daily_number(datetime.date.today())
             gfx.text(
                 surf,
-                f"DAILY CHALLENGE #{n}  ·  SAME PUZZLES FOR EVERYONE TODAY",
+                i18n.f("DAILY CHALLENGE #{n}  ·  SAME PUZZLES FOR EVERYONE TODAY", n=n),
                 (50, top),
                 14,
                 T.GOLD,
@@ -853,7 +898,7 @@ class IntroScene(Scene):
             i = self.battery_pos
             gfx.text(
                 surf,
-                f"FULL ASSESSMENT  ·  SUBTEST {i + 1} OF {len(ORDER)}",
+                i18n.f("FULL ASSESSMENT  ·  SUBTEST {n} OF {total}", n=i + 1, total=len(ORDER)),
                 (50, top),
                 14,
                 T.GOLD,
@@ -879,7 +924,7 @@ class IntroScene(Scene):
         else:
             y0 = top + (36 if self.ladder_kind == "daily" else 0)
         gfx.glow(surf, (220, y0 + 60), 300, col, 0.18 * a)
-        index_name = T.INDEX_NAMES[cls.index].upper()
+        index_name = i18n.upper(T.INDEX_NAMES[cls.index])
         chip = pygame.Rect(50, y0, max(230, T.font(13, True).size(index_name)[0] + 30), 28)
         gfx.panel(surf, chip, gfx.lerp_color(T.PANEL, col, 0.25), col, radius=14)
         gfx.text(
@@ -946,10 +991,8 @@ class IntroScene(Scene):
     def _mode(self):
         if self.ladder_kind == "daily":
             if self.daily_done:
-                return (
-                    f"You've already played today ({self.daily_done['solved']}/10). This run is practice "
-                    "and won't change your result."
-                )
+                return i18n.f("You've already played today ({solved}/10). This run is practice and won't change "
+                              "your result.", solved=self.daily_done["solved"])
             return (
                 "Daily challenge: 10 puzzles from easy to beyond the real test's hardest item, with feedback "
                 "after each. Only your first completed try today counts."
@@ -1006,7 +1049,7 @@ class SubtestResultScene(Scene):
         c = (360, 320) if T.compact else (T.W // 2, 330)
         info = (self.INFO_X, 180) if T.compact else (c[0], c[1] + 190)   # where the words start
         gfx.text(
-            surf, cls.name.upper(), (T.W // 2, 40 if T.compact else 70), 16, col, bold=True, anchor="center"
+            surf, i18n.upper(cls.name), (T.W // 2, 40 if T.compact else 70), 16, col, bold=True, anchor="center"
         )
         if not self.app.profile.settings.get("show_scores", True):
             self._draw_hidden(surf, c, col, info)
@@ -1028,7 +1071,8 @@ class SubtestResultScene(Scene):
             label = scoring.scaled_label(self.scaled)
             gfx.text(surf, label, (x, y), 28, T.TEXT, bold=True, anchor="center")
             pct = scoring.scaled_percentile(self.scaled)
-            line = f"Raw {self.raw} / {cls.max_raw}   ·   ≈ {pct:.0f}th percentile   ·   mean is 10, SD 3"
+            line = i18n.f("Raw {raw} / {max}   ·   ≈ {percentile}th percentile   ·   mean is 10, SD 3",
+                          raw=self.raw, max=cls.max_raw, percentile=round(pct))
             gfx.text(surf, line, (x, y + dy[0]), 18, T.MUTED, anchor="center")
             if self.scaled > self.best_before > 0:
                 gfx.text(
@@ -1080,16 +1124,16 @@ class SubtestResultScene(Scene):
     def _extra(self):
         d = self.details
         if "forward" in d:
-            return f"Forward {d['forward']}  ·  Backward {d['backward']}  ·  Sequencing {d['sequencing']}"
+            return i18n.f("Forward {forward}  ·  Backward {backward}  ·  Sequencing {sequencing}", **d)
         if "attempted" in d:
-            return f"{d['correct']} correct  ·  {d['wrong']} incorrect  ·  {d['attempted']} attempted"
+            return i18n.f("{correct} correct  ·  {wrong} incorrect  ·  {attempted} attempted", **d)
         if d.get("discontinued"):
-            return (
-                f"Stopped after {d['items']} items. Every subtest ends after a run of misses, "
-                f"so everyone reaches that point."
-            )
+            return i18n.n(d["items"], "Stopped after {n} item. Every subtest ends after a run of misses, so everyone "
+                          "reaches that point.", "Stopped after {n} items. Every subtest ends after a run of "
+                          "misses, so everyone reaches that point.")
         if "items" in d:
-            return f"{d['items']} items given, right to the end of the subtest"
+            return i18n.n(d["items"], "{n} item given, right to the end of the subtest",
+                          "{n} items given, right to the end of the subtest")
         return ""
 
 
@@ -1194,7 +1238,7 @@ class BatteryResultScene(Scene):
             )
             gfx.text(
                 surf,
-                scoring.classification(self.fsiq),
+                i18n._(scoring.classification(self.fsiq)),
                 (x, y + 96),
                 20,
                 T.GOLD,
@@ -1203,7 +1247,7 @@ class BatteryResultScene(Scene):
             )
             gfx.text(
                 surf,
-                f"≈ {scoring.percentile(self.fsiq):.1f}th percentile",
+                i18n.f("≈ {percentile}th percentile", percentile=i18n.decimal(scoring.percentile(self.fsiq))),
                 (x, y + 96 + max(28, T.font(20, True).get_linesize())),
                 16,
                 T.MUTED,
@@ -1405,7 +1449,7 @@ class LadderResultScene(Scene):
         col = T.INDEX_COLORS[cls.index]
         c = (360, 310) if T.compact else (T.W // 2, 290)
         info_x, info_y = (self.INFO_X, 150) if T.compact else (c[0], c[1] + 172)   # where the details start
-        title = f"{lad.label()}  ·  {cls.name}".upper()
+        title = f"{lad.label()}  ·  {i18n._(cls.name)}".upper()
         gfx.text(surf, title, (T.W // 2, 40 if T.compact else 64), 16, col, bold=True, anchor="center")
         a = gfx.ease_out((self.t - 0.2) / 1.2)
         gfx.glow(surf, c, 250, col, 0.2)
@@ -1446,12 +1490,14 @@ class LadderResultScene(Scene):
                     anchor="center",
                 )
                 peak = self.app.profile.rating(cls.code)
-                info = f"{lad.solved} of {lad.length} solved  ·  {lad.played} puzzles played"
+                info = i18n.f("{solved} of {length} solved", solved=lad.solved, length=lad.length) + "  ·  " + \
+                    i18n.n(lad.played, "{n} puzzle played", "{n} puzzles played")
                 if peak:
-                    info += f"  ·  peak {peak['peak']:.0f}"
+                    info += i18n.f("  ·  peak {peak}", peak=round(peak["peak"]))
                 online_rank = self.app.online.rank(cls.code)
                 if online_rank and online_rank.get("rank"):
-                    info += f"  ·  #{online_rank['rank']} of {online_rank['total']} online"
+                    info += i18n.f("  ·  #{rank} of {total} online", rank=online_rank["rank"],
+                                   total=online_rank["total"])
                 width = 2 * min(info_x, T.W - info_x) - 40
                 gfx.text(surf, info, (info_x, info_y + 40), gfx.fit_width(info, 17, width), T.MUTED, anchor="center")
         else:
@@ -1470,12 +1516,10 @@ class LadderResultScene(Scene):
                 surf, "SOLVED", (c[0], c[1] + 40), 13, col, bold=True, anchor="center"
             )
             if self.counted:
-                info = (
-                    f"Daily streak: {self.streak} day{'s' if self.streak != 1 else ''}"
-                )
+                info = i18n.n(self.streak, "Daily streak: {n} day", "Daily streak: {n} days")
             else:
                 info = (
-                    f"Practice replay  ·  today's result was {self.first['solved']}/10"
+                    i18n.f("Practice replay  ·  today's result was {solved}/10", solved=self.first["solved"])
                     if self.first
                     else ""
                 )
@@ -1610,7 +1654,7 @@ class LeaderboardScene(Scene):
         elif self.app.profile.current:
             self.buttons.append(self.join_btn)
             joining = on.joining is not None
-            self.join_btn.label = "Joining…" if joining else f"Join as {self.app.profile.current}"
+            self.join_btn.label = "Joining…" if joining else i18n.f("Join as {name}", name=self.app.profile.current)
             self.join_btn.enabled = not joining
         for b in self.tabs:
             b.primary = b.label == BY_CODE[self.code].name
@@ -1670,7 +1714,8 @@ class LeaderboardScene(Scene):
             cy = row.centery
             rank_col = T.GOLD if r["rank"] == 1 else T.TEXT if r["rank"] <= 3 else T.MUTED
             gfx.text(surf, str(r["rank"]), (cols[0], cy), size, rank_col, bold=True, anchor="midright")
-            name = gfx.text(surf, r["name"], (cols[1], cy), size, T.TEXT, bold=True, mono=True, anchor="midleft")
+            name = gfx.text(surf, r["name"], (cols[1], cy), size, T.TEXT, bold=True, mono=True, anchor="midleft",
+                            translate=False)
             gfx.text(surf, f"#{r['tag']}", (name.right + 10, cy), max(11, size - 4), T.DIM, mono=True,
                      anchor="midleft")
             gfx.text(surf, f"{r['rating']:.0f}", (cols[2], cy), size, col if you else T.TEXT, bold=True,
@@ -1688,7 +1733,7 @@ class LeaderboardScene(Scene):
         name = self.app.profile.current or ""
         if not acct:
             gfx.text(surf, "COMPETE ONLINE", (x, y), 14, T.GOLD, bold=True)
-            paras = [f"Put {name}'s puzzle ratings on the leaderboard.",
+            paras = [i18n.f("Put {name}'s puzzle ratings on the leaderboard.", name=name),
                      "Your name, ratings and progress are sent. The progress is a backup that lets you move "
                      "to another device with a recovery code. Leave any time to delete it all from the server."]
             if on.error:
@@ -1701,8 +1746,8 @@ class LeaderboardScene(Scene):
                 top += gfx.text_block(surf, para, (x, top), w, size, c, spacing=1.3) + 12
             return
         gfx.text(surf, "YOU", (x, y), 14, col, bold=True)
-        n = gfx.text(surf, name, (x, y + 28), gfx.fit_width(name, 30, w - 90, bold=True, mono=True), T.TEXT,
-                     bold=True, mono=True)
+        n = gfx.text(surf, name, (x, y + 28), gfx.fit_width(name, 30, w - 90, bold=True, mono=True, translate=False),
+                     T.TEXT, bold=True, mono=True, translate=False)
         gfx.text(surf, f"#{acct['tag']}", (n.right + 10, n.centery), 16, T.DIM, mono=True, anchor="midleft")
         y = n.bottom + 16
         board = self.boards.get(self.code)
@@ -1710,20 +1755,20 @@ class LeaderboardScene(Scene):
         local = self.app.profile.rating(self.code)
         if me and me.get("rank"):
             big = f"#{me['rank']}"
-            line = f"of {board['total']} ranked in {cls.name}"
+            line = i18n.f("of {total} ranked in {subtest}", total=board["total"], subtest=i18n._(cls.name))
         elif me and me.get("played"):
             left = max(0, SET_LENGTH - me["played"])
-            big, line = "Unranked", f"{left} more puzzle{'s' if left != 1 else ''} to be ranked"
+            big, line = "Unranked", i18n.n(left, "{n} more puzzle to be ranked", "{n} more puzzles to be ranked")
         elif local:
             big, line = "…", "Your rating is on its way"
         else:
-            big, line = "Unrated", f"Play a {cls.name} rated set to get a rating"
+            big, line = "Unrated", i18n.f("Play a {subtest} rated set to get a rating", subtest=i18n._(cls.name))
         r = gfx.text(surf, big, (x, y), 56 if big.startswith("#") else 34, col, bold=True)
         y = r.bottom + 6
         bottom = self.code_btn.rect.y - 12
         lines = [line]
         if me and me.get("rating") is not None:
-            lines.append(f"Rating {me['rating']:.0f}  ·  peak {me['peak']:.0f}")
+            lines.append(i18n.f("Rating {rating}  ·  peak {peak}", rating=round(me["rating"]), peak=round(me["peak"])))
         size = gfx.fit_size(16, lambda k: gfx.block_height(lines, w, k, spacing=1.3, gap=6) <= bottom - y)
         for k, ln in enumerate(lines):
             y += gfx.text_block(surf, ln, (x, y), w, size, T.MUTED if k == 0 else T.TEXT, spacing=1.3) + 6
@@ -1804,7 +1849,8 @@ class RecoveryCodeScene(Scene):
         name = self.app.profile.current or ""
         code = self._code()
         y = p.y + (24 if T.compact else 36)
-        gfx.text(surf, f"{name}'S RECOVERY CODE", (p.centerx, y), 14, T.ACCENT, bold=True, anchor="midtop")
+        gfx.text(surf, i18n.f("{name}'S RECOVERY CODE", name=name), (p.centerx, y), 14, T.ACCENT, bold=True,
+                 anchor="midtop")
         y += 30
         if code and not self.busy:
             r = gfx.text(surf, code, (p.centerx, y), 60 if T.compact else 72, T.TEXT, bold=True, mono=True,
@@ -1813,7 +1859,7 @@ class RecoveryCodeScene(Scene):
             r = gfx.text(surf, "Getting your code…" if self.busy else "No code yet", (p.centerx, y + 20), 30,
                          T.MUTED, bold=True, anchor="midtop")
         if self.status:
-            bad = not self.status.startswith("Copied")
+            bad = self.status != "Copied!"
             gfx.text(surf, self.status, (p.centerx, r.bottom + 10), gfx.fit_width(self.status, 15, p.w - 80),
                      T.BAD if bad else T.GOOD, bold=True, anchor="midtop")
         elif self.armed:
@@ -1822,8 +1868,8 @@ class RecoveryCodeScene(Scene):
         paras = [
             "On your other device, choose Restore a player when it asks for a name (or on the Who's playing "
             "screen) and enter this code.",
-            f"{name}'s progress, settings and leaderboard place move there. This device keeps its copy of "
-            "the progress but stops posting to the leaderboard.",
+            i18n.f("{name}'s progress, settings and leaderboard place move there. This device keeps its copy of "
+                   "the progress but stops posting to the leaderboard.", name=name),
             "Keep the code private: anyone who has it can take over this player. If someone else has seen "
             "it, get a new code.",
         ]
@@ -1843,12 +1889,13 @@ class LearnScene(Scene):
     def __init__(self, app, topic=None, then=None):
         super().__init__(app)
         self.then = then
-        keys = [k for k, _, _ in TOPICS]
+        self.topics = learn.topics(i18n.language())
+        keys = [k for k, _, _ in self.topics]
         self.ti = keys.index(topic) if topic in keys else 0
         self.page = 0
         self.nav = []
         if then is None:
-            for i, (_, title, _) in enumerate(TOPICS):
+            for i, (_, title, _) in enumerate(self.topics):
                 b = Button(
                     (40, 84 + i * 56, 250, 46) if T.compact else (40, 150 + i * 58, 250, 46),
                     title,
@@ -1901,7 +1948,7 @@ class LearnScene(Scene):
         key = (self.ti, T.large_text)
         if key not in self._split:
             self._split[key] = [
-                part for title, paras in TOPICS[self.ti][2] for part in self._paginate(title, paras)
+                part for title, paras in self.topics[self.ti][2] for part in self._paginate(title, paras)
             ]
         return self._split[key]
 
@@ -1938,7 +1985,7 @@ class LearnScene(Scene):
             self.page += 1
         elif self.then:
             self.then()
-        elif self.ti < len(TOPICS) - 1:
+        elif self.ti < len(self.topics) - 1:
             self._select(self.ti + 1)
 
     def _leave(self):
@@ -1956,7 +2003,7 @@ class LearnScene(Scene):
             and e.key in (pygame.K_UP, pygame.K_DOWN)
         ):
             self._select(
-                (self.ti + (1 if e.key == pygame.K_DOWN else -1)) % len(TOPICS)
+                (self.ti + (1 if e.key == pygame.K_DOWN else -1)) % len(self.topics)
             )
             return True
         return False
@@ -1973,7 +2020,7 @@ class LearnScene(Scene):
             self.next_btn.accent = T.GOLD if last else T.ACCENT
         else:
             self.next_btn.label = "Next topic" if last else "Next"
-            self.next_btn.enabled = not (last and self.ti == len(TOPICS) - 1)
+            self.next_btn.enabled = not (last and self.ti == len(self.topics) - 1)
 
     @staticmethod
     def layout_page(paras, p, surf=None, size=17):
@@ -2061,16 +2108,15 @@ class SettingsScene(Scene):
         if not sound.available():
             music_desc = "No audio device was found."
         elif n:
-            music_desc = (
-                f"Plays the {n} track{'s' if n != 1 else ''} in your music folder on a shuffled loop. "
-                "It turns down while digits are read out."
-            )
+            music_desc = i18n.n(n, "Plays the {n} track in your music folder on a shuffled loop. It turns down "
+                                   "while digits are read out.",
+                                "Plays the {n} tracks in your music folder on a shuffled loop. It turns down "
+                                "while digits are read out.")
+        elif web.IS_WEB:
+            music_desc = "Put your own mp3, ogg or wav files in the puzzleth/music folder. None found yet."
         else:
-            music_desc = (
-                "Put your own mp3, ogg or wav files in the puzzleth/music folder"
-                + ("." if web.IS_WEB else " or ~/.puzzleth/music.")
-                + " None found yet."
-            )
+            music_desc = ("Put your own mp3, ogg or wav files in the puzzleth/music folder or ~/.puzzleth/music. "
+                          "None found yet.")
         self.rows = [
             (
                 "Feedback while training",
@@ -2151,7 +2197,14 @@ class SettingsScene(Scene):
             hotkeys=(pygame.K_ESCAPE, pygame.K_RETURN),
             primary=True,
         )
-        self.buttons = self.toggles + [back]
+        language = Button(
+            (40, T.H - 74, 180, 48),
+            "Language",
+            app.choose_language,
+            T.ACCENT,
+            size=16,
+        )
+        self.buttons = self.toggles + [language, back]
 
     def _flip(self, key):
         s = self.app.profile.settings
@@ -2203,4 +2256,4 @@ class SettingsScene(Scene):
 
 
 def _volume_label(v):
-    return f"{round(v * 100)}%" if v > 0 else "Off"
+    return f"{round(v * 100)}\u00a0%" if v > 0 and i18n.language() == "fr" else f"{round(v * 100)}%" if v > 0 else "Off"

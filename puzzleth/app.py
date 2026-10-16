@@ -4,11 +4,11 @@ import os
 
 import pygame
 
-from . import gfx, online, scoring, sound, web
+from . import gfx, i18n, online, scoring, sound, web
 from . import theme as T
 from .challenge import START_RATING, DailyLadder, RatedLadder
 from .display import Display, Stage, stage_size
-from .scenes import (BatteryResultScene, DisclaimerScene, IntroScene, LadderResultScene, LeaderboardScene, LearnScene,
+from .scenes import (BatteryResultScene, DisclaimerScene, IntroScene, LadderResultScene, LanguageScene, LeaderboardScene, LearnScene,
                      MenuScene, NameEntryScene, PauseOverlay, PlayersScene, RecoveryCodeScene, RestoreScene,
                      SettingsScene, SubtestResultScene)
 from .storage import Profile
@@ -50,6 +50,29 @@ class App:
         if web.IS_WEB:   # before the first scene lays itself out
             self._check_large_text()
             web.mark_started()
+        language = self.profile.settings.get("language")
+        if language not in {code for code, _ in i18n.LANGUAGES}:
+            self.scene = LanguageScene(self)
+        else:
+            self._set_language(language)
+            self._show_initial_scene()
+
+    @staticmethod
+    def _set_language(language):
+        i18n.set_language(language)
+        sound.set_language(language)   # the spoken digits
+
+    def _language_chosen(self, language, done=None):
+        self._set_language(language)
+        if done:
+            done()
+        else:
+            self._show_initial_scene()
+
+    def choose_language(self):
+        self.goto(LanguageScene(self, done=lambda: self.goto(SettingsScene(self))))
+
+    def _show_initial_scene(self):
         if not self.profile.settings.get("disclaimer_seen"):
             self.scene = DisclaimerScene(self)
         elif len(self.profile.players()) > 1:   # make sure the right person is playing
@@ -289,4 +312,3 @@ class App:
                 pygame.display.flip()
             await asyncio.sleep(0)
         pygame.quit()
-

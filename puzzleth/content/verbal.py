@@ -5,6 +5,7 @@ Similarities: each category yields many word pairs. The answers mirror WAIS scor
   1 pt  - a concrete shared property ("Both can be eaten")
   0 pts - wrong, overly general, or only true of one word.
 """
+import sys
 
 # tier: [(members, two_point, one_point, near_miss_zero)]
 SIMILARITIES = {
@@ -238,3 +239,12 @@ INFORMATION = {
                                                               "The Aksumite Empire"]),
     ],
 }
+
+
+def bank(language):
+    """The item banks written for ``language``: this module for English, otherwise verbal_<language>.
+
+    The other languages have their own words and questions rather than translations of these, so that
+    each item is as natural and as hard in that language as the English one is in English."""
+    from . import verbal_fr, verbal_ro
+    return {"ro": verbal_ro, "fr": verbal_fr}.get(language, sys.modules[__name__])

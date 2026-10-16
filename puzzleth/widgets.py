@@ -12,8 +12,9 @@ def _q(x):
 
 class Button:
     def __init__(self, rect, label, on_click=None, accent=T.ACCENT, hotkeys=(), size=20, primary=False,
-                 sound="tap"):
+                 sound="tap", translate=True):
         self.rect = pygame.Rect(rect)
+        self.translate = translate   # False for a label that isn't English text, such as a player's name
         self.sound = sound   # None when on_click makes its own sound
         self.label = label
         self.on_click = on_click
@@ -53,8 +54,8 @@ class Button:
             gfx.glow(surf, self.rect.center, self.rect.w * 0.45, self.accent, 0.18 * h)
         gfx.panel(surf, self.rect, fill, border, radius=min(14, self.rect.h // 2))
         color = T.TEXT if self.enabled else T.DIM
-        size = gfx.fit_width(self.label, self.size, self.rect.w - 24, bold=True)
-        gfx.text(surf, self.label, self.rect.center, size, color, bold=True, anchor="center")
+        size = gfx.fit_width(self.label, self.size, self.rect.w - 24, bold=True, translate=self.translate)
+        gfx.text(surf, self.label, self.rect.center, size, color, bold=True, anchor="center", translate=self.translate)
 
 
 class OptionCard:

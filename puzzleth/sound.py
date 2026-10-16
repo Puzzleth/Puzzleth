@@ -42,6 +42,7 @@ LEVELS = {
 
 _ok = False
 _sounds = {}
+_language = "en"   # whose spoken digits to use, from sounds/<language>/ (English ones are in sounds/)
 _sfx = 0.75
 _music = 0.5
 _ducked = False
@@ -115,10 +116,20 @@ def available():
     return _ok
 
 
+def set_language(language):
+    """Use the sounds made for ``language`` (its spoken digits) where there are any."""
+    global _language
+    _language = language
+    if _ok:
+        _load_sounds()
+
+
 def _sound_files():
-    """{name: path}. Earlier folders win; within a folder, .wav and .mp3 win over the bundled .ogg."""
+    """{name: path}. Earlier folders win; within a folder, .wav and .mp3 win over the bundled .ogg.
+    The current language's folders come first."""
     found = {}
-    for d in folders("sounds"):
+    kinds = ["sounds"] if _language == "en" else [os.path.join("sounds", _language), "sounds"]
+    for d in [d for kind in kinds for d in folders(kind)]:
         if not os.path.isdir(d):
             continue
         files = [os.path.splitext(f) + (f,) for f in os.listdir(d)]
