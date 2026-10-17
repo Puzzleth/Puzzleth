@@ -1,6 +1,10 @@
-# Tests and builds the Nightly branch, and publishes the build to the nightly-build branch, where the
-# Android app looks for updates (see tools/android/src/net/puzzleth/game/MainActivity.java). The public
-# web version is only deployed from main (web.yml).
+# Tests and builds the Nightly branch, and publishes the build to the nightly branch of the private
+# Puzzleth-builds repository, where the Android app looks for updates (see
+# tools/android/src/net/puzzleth/game/MainActivity.java). The web version is only deployed from main
+# (web.yml).
+#
+# One-time setup: create the private repository Puzzleth/Puzzleth-builds, and add a fine-grained token
+# with read and write access to its contents as this repository's secret BUILDS_TOKEN.
 name: Nightly build
 
 on:
@@ -9,7 +13,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write   # to push the nightly-build branch
+  contents: read
 
 concurrency:
   group: nightly
@@ -31,12 +35,12 @@ jobs:
       - run: command -v ffmpeg || (sudo apt-get update && sudo apt-get install -y ffmpeg)   # converts added .wav/.mp3
       - run: tools/build_web.sh
 
-      - name: Publish to the nightly-build branch
+      - name: Publish to Puzzleth-builds
         working-directory: build/web
         run: |
-          git init -q -b nightly-build
+          git init -q -b nightly
           git config user.name "github-actions[bot]"
           git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
           git add -A
           git commit -q -m "Nightly build $(cat version.txt) from ${GITHUB_SHA::7}"
-          git push --force "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" nightly-build
+          git push --force "https://x-access-token:${{ secrets.BUILDS_TOKEN }}@github.com/${{ github.repository_owner }}/Puzzleth-builds.git" nightly

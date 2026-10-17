@@ -12,6 +12,9 @@
 #   tools/android/build_apk.sh              # build the web version, then the APK
 #   tools/android/build_apk.sh --skip-web   # reuse build/web from the last web build
 #
+# Nightly updates: put a read-only token for the private Puzzleth-builds repository in
+# ~/.puzzleth/builds-token (or PUZZLETH_BUILDS_TOKEN_FILE) and the APK checks it for newer builds.
+#
 # The APK is signed with a key of your own, made on the first build and kept outside the repository
 # (PUZZLETH_KEYSTORE, by default ~/.puzzleth/android-release.keystore, with its password in a .pass file
 # beside it). Keep both safe: Android only installs an update signed with the same key.
@@ -59,6 +62,14 @@ mkdir -p "$WORK/res/mipmap" "$WORK/assets" "$WORK/classes" "$WORK/dex"
 cp tools/web/favicon.png "$WORK/res/mipmap/ic_launcher.png"
 cp -R build/web "$WORK/assets/web"
 rm -f "$WORK/assets/web/"*.tar.gz   # pygbag's copy of the source: not needed to play
+# The read-only token for the private Puzzleth-builds repository, where the app looks for Nightly
+# updates (see MainActivity.java). Without one the app never looks.
+TOKEN_FILE=${PUZZLETH_BUILDS_TOKEN_FILE:-$HOME/.puzzleth/builds-token}
+if [[ -s "$TOKEN_FILE" ]]; then
+  cp "$TOKEN_FILE" "$WORK/assets/nightly-token.txt"
+else
+  echo "warning: no $TOKEN_FILE, so this APK won't update itself from Nightly builds" >&2
+fi
 sed -e "s/@VERSION_CODE@/$VERSION_CODE/" -e "s/@VERSION_NAME@/$VERSION/" tools/android/AndroidManifest.xml \
   > "$WORK/AndroidManifest.xml"
 
