@@ -17,7 +17,7 @@ The game isn't anywhere near release, though. It still needs testing.
 
 This is how far I've gotten.
 
-![screenshot](assets/photos/screenshot-Puzzleth-v0.0.3-Pre-Alpha.png)
+![screenshot]({{ "/assets/photos/screenshot-Puzzleth-v0.0.3-Pre-Alpha.png" | relative_url }})
 
 If you want to participate in the Pre-Alpha, email me at thealepou@icloud.com
 
