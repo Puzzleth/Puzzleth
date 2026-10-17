@@ -5,7 +5,7 @@ A paragraph starting with "## " is drawn as a small heading.
 
 EXPECT = [
     ("Before the session", [
-        "A WAIS assessment is a one-to-one session with a psychologist or a trained examiner. The ten core "
+        "A cognitive assessment is a one-to-one session with a psychologist or a trained examiner. The core "
         "subtests usually take about an hour to an hour and a half, sometimes as part of a longer assessment.",
         "There is nothing to study and nothing to bring except glasses or hearing aids if you use them. Sleep, "
         "food and any medication you normally take matter more than any preparation.",
@@ -42,8 +42,8 @@ EXPECT = [
         "Guessing is allowed, and so is passing. You are not expected to answer everything.",
     ]),
     ("Afterwards", [
-        "Your answers are turned into scaled scores for each subtest (1 to 19, average 10), then four index "
-        "scores and a Full Scale IQ (average 100).",
+        "Your answers are compared with those of a large group of people your age, and turned into scores for "
+        "each subtest, for each of the four areas, and overall.",
         "A good report gives ranges, not just single numbers, and puts the scores alongside your history, "
         "education and the reason you were tested. The numbers are one piece of a bigger picture.",
         "Uneven results are normal. Most people score noticeably higher in some areas than in others.",
@@ -84,18 +84,18 @@ SUBTESTS = [
         "Copying symbols that match digits as fast as possible, using a key. Looks at speed and visual-motor "
         "coordination.",
     ]),
-    ("Editions", [
-        "This game follows the WAIS-IV (2008): ten core subtests making four index scores. The real WAIS-IV also "
-        "has five supplementary subtests that an examiner can add or swap in.",
-        "A newer edition, the WAIS-5, was published in 2024. It splits Perceptual Reasoning into Visual Spatial "
-        "and Fluid Reasoning, and builds the Full Scale IQ from fewer subtests. Many clinics still use the "
-        "WAIS-IV, and the session itself feels much the same.",
-        "Children are tested with a different test, the WISC, which works in a very similar way.",
+    ("Other versions", [
+        "This game has ten core subtests in four areas. Real assessments can also have extra subtests that an "
+        "examiner can add or swap in.",
+        "Assessments are revised every so often: tasks are updated, the areas can be split up differently, and "
+        "the scores are worked out again from new groups of people. Whichever version you meet, the session "
+        "itself feels much the same.",
+        "Children are assessed with a version made for their age, which works in a very similar way.",
     ]),
 ]
 
 INDEXES = [
-    ("The four index scores", [
+    ("The four areas", [
         "## Verbal Comprehension  (Similarities, Vocabulary, Information)",
         "Reasoning with words and the knowledge you have built up through language.",
         "## Perceptual Reasoning  (Block Design, Matrix Reasoning, Visual Puzzles)",
@@ -104,30 +104,30 @@ INDEXES = [
         "Holding information in mind for a few seconds while doing something with it.",
         "## Processing Speed  (Symbol Search, Coding)",
         "How quickly and accurately you can do simple visual tasks.",
-        "Each index is built from its subtests, and the Full Scale IQ is built from all ten.",
+        "Each area is built from its subtests, and the overall result is built from all ten.",
     ]),
 ]
 
 SCORES = [
     ("How scores work", [
-        "## Raw score to scaled score",
-        "Points on a subtest are compared with people of your age and turned into a scaled score from 1 to 19. "
-        "10 is average, and about two in three people score between 7 and 13.",
-        "## Index scores and Full Scale IQ",
-        "These use a different scale: 100 is average, and every 15 points is one standard deviation. About two "
-        "in three people score between 85 and 115, and about 2 in 100 score above 130.",
+        "## Compared with people your age",
+        "Points on a subtest are compared with those of a large group of people your age. A score says where "
+        "you stand among them, not how many answers you got right.",
+        "## Subtests, areas and overall",
+        "Each subtest gets a score, each of the four areas gets one from its subtests, and one overall result "
+        "combines them all. About two in three people score close to the average on each of them.",
         "## Percentiles",
         "A percentile of 75 means you scored higher than 75 out of 100 people your age. It is not a percentage "
         "of answers correct.",
         "## Ranges, not points",
-        "Any test has measurement error, so real reports give a confidence range, such as 102 to 112. A few "
-        "points of difference between two scores usually mean nothing.",
+        "Any test has measurement error, so real reports give a confidence range instead of a single number. "
+        "A small difference between two scores usually means nothing.",
     ]),
     ("Scores in this game", [
-        "## Test-style scores",
-        "The full assessment and the WAIS-style subtests show scaled scores, index scores and a Full Scale "
-        "Score (the game's stand-in for a Full Scale IQ), so you can see how a real score report is put together. The norms behind them are made up for this "
-        "game, so the numbers only track your own progress. You can hide them in Settings.",
+        "## Grade Scores",
+        "The subtests, the four areas and the full assessment are graded from D up to S: D, C, B, A, and S for "
+        "the very best. The full assessment's overall grade is your Grade Score. The standards behind the "
+        "grades are made up for this game, so they only track your own progress. You can hide them in Settings.",
         "## Puzzle rating",
         "Rated sets work like a chess puzzle rating. Each puzzle has a difficulty level, and your rating rises "
         "when you solve one and falls when you miss one, by more when the result is a surprise. Puzzles are "
@@ -141,51 +141,52 @@ SCORES = [
 
 MYTHS = [
     ("Myths and facts", [
-        "## \"IQ is fixed for life.\"",
+        "## \"Your score is fixed for life.\"",
         "Adult scores are fairly stable, but not set in stone. Education, health and life circumstances all "
         "play a part, and scores can change over years.",
-        "## \"Brain training raises your IQ.\"",
+        "## \"Brain training makes you smarter.\"",
         "Practice makes you better at the tasks you practise. Large reviews have found little evidence that "
         "the gains carry over to general intelligence. This game will make you better at these puzzles. It "
         "won't make you smarter.",
-        "## \"An online IQ test told me my IQ.\"",
-        "Real IQ tests are standardised on large, carefully chosen samples of people and given under controlled "
-        "conditions. Online tests, including this game, are not, so their numbers can't be compared with real "
-        "scores.",
+        "## \"An online test told me my real score.\"",
+        "Real assessments are standardised on large, carefully chosen samples of people and given under "
+        "controlled conditions. Online tests, including this game, are not, so their results can't be compared "
+        "with real scores.",
     ]),
     ("Myths and facts  (continued)", [
-        "## \"IQ measures your worth.\"",
-        "IQ tests measure a specific set of reasoning, memory and speed skills. They say nothing about kindness, "
-        "creativity, determination or most of what makes a life go well.",
-        "## \"A big gap between my index scores means something is wrong.\"",
-        "Gaps of 10 or more points between index scores are common in the general population. Only a qualified "
-        "professional, looking at the whole picture, can say whether a pattern matters.",
+        "## \"A test score measures your worth.\"",
+        "These tests measure a specific set of reasoning, memory and speed skills. They say nothing about "
+        "kindness, creativity, determination or most of what makes a life go well.",
+        "## \"A big gap between my areas means something is wrong.\"",
+        "Clear gaps between areas are common in the general population. Only a qualified professional, looking "
+        "at the whole picture, can say whether a pattern matters.",
         "## \"Scores keep going up over generations.\"",
-        "Partly true. Average scores rose by about 3 points per decade during the 20th century (the Flynn "
-        "effect). That's one reason tests are re-normed every so often.",
+        "Partly true. Average scores rose steadily during the 20th century (the Flynn effect). That's one "
+        "reason tests are re-normed every so often.",
     ]),
 ]
 
 ABOUT = [
     ("About Puzzleth", [
-        "Puzzleth is a free, open-source training game modelled on the structure and administration rules "
-        "of the WAIS-IV. Every puzzle is generated by the game. None of the real test's items are used, and the "
-        "game is not affiliated with or endorsed by the test's publisher.",
-        "## This is not an actual IQ test",
-        "Its scores come from approximate norms made up for this game. They can't be compared with a real IQ, "
-        "can't diagnose anything, and must not be used for school, work, legal or medical decisions.",
+        "Puzzleth is a training game modelled on the structure and administration rules of real one-to-one "
+        "cognitive assessments. Every puzzle is generated by the game. No real test's items are used, and the "
+        "game is not affiliated with or endorsed by any test publisher.",
+        "## This is not a psychological test",
+        "Its grades come from rough standards made up for this game. They can't be compared with the results "
+        "of a real assessment, can't diagnose anything, and must not be used for school, work, legal or medical "
+        "decisions.",
         "## Who it's for",
         "People who are nervous about an upcoming assessment and want to know what it's like. People who love "
-        "a hard puzzle. And anyone curious about how intelligence tests work.",
+        "a hard puzzle. And anyone curious about how these assessments work.",
     ]),
 ]
 
 TOPICS = [
     ("expect", "What to expect", EXPECT),
     ("subtests", "The ten subtests", SUBTESTS),
-    ("indexes", "The four indexes", INDEXES),
+    ("indexes", "The four areas", INDEXES),
     ("scores", "How scores work", SCORES),
-    ("myths", "IQ myths and facts", MYTHS),
+    ("myths", "Myths and facts", MYTHS),
     ("about", "About this game", ABOUT),
 ]
 

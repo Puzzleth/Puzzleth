@@ -1,7 +1,7 @@
 """Challenge modes: rated puzzle sets and the daily challenge.
 
 Both run a subtest as a *ladder*: a fixed-length set of puzzles at chosen difficulty levels,
-instead of the WAIS start/reversal/discontinue rules. Levels go past the real test's last item
+instead of the real test's start/reversal/discontinue rules. Levels go past the real test's last item
 (up to the subtest's ``max_level``), so the difficulty keeps climbing.
 
 Puzzle rating works like a chess puzzle rating (Elo). Each level has a nominal rating and your

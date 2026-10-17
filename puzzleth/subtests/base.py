@@ -1,6 +1,6 @@
 """Shared machinery for subtests.
 
-ItemSubtest implements the WAIS administration rules:
+ItemSubtest implements the real test's administration rules:
   * start point   - adults begin partway into the item list,
   * reversal      - if either of the first two items is not perfect, earlier items are given in
                     reverse order until two consecutive perfect scores; unadministered items
@@ -8,7 +8,7 @@ ItemSubtest implements the WAIS administration rules:
   * discontinue   - stop after N consecutive scores of 0,
   * time limits   - per item, where the real test has them.
 
-With a ``ladder`` (see challenge.py) the WAIS rules are replaced by a fixed-length set of puzzles at
+With a ``ladder`` (see challenge.py) the administration rules are replaced by a fixed-length set of puzzles at
 levels the ladder picks, which may go past ``n_items`` up to ``max_level``.
 """
 import math
@@ -405,7 +405,7 @@ class ItemSubtest(Subtest):
 
 
 class SpeedSubtest(Subtest):
-    """Untimed practice with feedback, then a single fixed time limit (120 s on the WAIS)."""
+    """Untimed practice with feedback, then a single fixed time limit (120 s on the real test)."""
 
     duration = 120
     practice_n = 3

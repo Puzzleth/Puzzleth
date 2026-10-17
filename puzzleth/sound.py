@@ -47,7 +47,7 @@ _sfx = 0.75
 _music = 0.5
 _ducked = False
 _tracks = []
-_streaming = False  # web build: _tracks are URLs, played by web.stream_music
+_streaming = False  # web build: _tracks are URLs, which the page plays (web.play_music)
 _queue = []
 _current = None  # the music file loaded now
 _started = 0  # pygame.time.get_ticks() when it started playing
@@ -194,11 +194,10 @@ def set_volumes(sfx, music):
 
 
 def _apply_volume():
-    v = _music * (DUCK if _ducked else 1.0) * _fade
-    if _streaming:
-        web.music_volume(v)
+    if _streaming:   # the page fades each song in and out under this
+        web.music_volume(_music * (DUCK if _ducked else 1.0))
     else:
-        pygame.mixer.music.set_volume(v)
+        pygame.mixer.music.set_volume(_music * (DUCK if _ducked else 1.0) * _fade)
 
 
 def duck(on):
@@ -224,16 +223,16 @@ def _stop_music():
 
 def _next_track():
     global _current, _started, _fade
+    if _streaming:   # the page takes it from here, song after song (see web.play_music)
+        web.play_music(_tracks)
+        _current, _started = "streaming", pygame.time.get_ticks()
+        _apply_volume()
+        return
     if not _queue:
         _queue.extend(random.sample(_tracks, len(_tracks)))
         if len(_tracks) > 1 and _queue[-1] == _current:  # no song twice in a row
             _queue.insert(0, _queue.pop())
     path = _queue.pop()
-    if _streaming:  # the next click, tap or key press starts it if the browser won't yet
-        web.stream_music(path)
-        _current, _started, _fade = path, pygame.time.get_ticks(), 0.0
-        _apply_volume()
-        return
     try:
         pygame.mixer.music.load(path)
         _current, _started, _fade = path, pygame.time.get_ticks(), 0.0
@@ -267,14 +266,15 @@ def _position():
 
 
 def handle_event(e):
-    if e.type == MUSIC_END and _ok and _music > 0 and _current:
+    # (not for a song that has only just started: update() may have moved on to it already)
+    if e.type == MUSIC_END and _ok and _music > 0 and _current and pygame.time.get_ticks() - _started > 1000:
         _next_track()
 
 
 def update(dt):
     """Fade songs in and out, and in a browser notice when one ends (no MUSIC_END event comes)."""
     global _check, _fade
-    if not (_ok and _current and _music > 0):
+    if not (_ok and _current and _music > 0) or _streaming:
         return
     _check += dt
     if _check < 0.1:
@@ -284,6 +284,9 @@ def update(dt):
         _next_track()
         return
     pos, length = _position()
+    if not web.IS_WEB and pos > 1 and not pygame.mixer.music.get_busy():
+        _next_track()   # the song ended without its MUSIC_END event reaching us
+        return
     fade = max(0.0, min(1.0, pos / FADE_IN))
     if length:
         fade = min(fade, max(0.0, (length - pos) / FADE_OUT))

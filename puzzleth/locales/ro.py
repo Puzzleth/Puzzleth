@@ -15,19 +15,6 @@ STRINGS = {
     "You can change it again any time in Settings.": "O poți schimba din nou oricând din Setări.",
     "Language": "Limba",
     "I understand": "Am înțeles",
-    "This is not an actual IQ test": "Acesta nu este un test IQ real",
-    "Puzzleth is a training game modelled on the structure and rules of the WAIS-IV. It is not the WAIS, uses "
-    "none of its items, and is not affiliated with or endorsed by its publisher.":
-        "Puzzleth este un joc de antrenament inspirat de structura și regulile WAIS-IV. Nu este WAIS, nu "
-        "folosește niciunul dintre itemii săi și nu este afiliat cu editorul acestuia și nici susținut de el.",
-    "Scores come from approximate norms made up for this game, not from a standardised sample of people. The "
-    "scores shown here cannot be compared with a real IQ score.":
-        "Scorurile provin din norme aproximative create pentru acest joc, nu dintr-un eșantion standardizat de "
-        "persoane. Scorurile afișate aici nu pot fi comparate cu un scor IQ real.",
-    "It cannot diagnose anything and must not be used for school, work, legal or medical decisions. Only a "
-    "standardised test given by a qualified psychologist produces a real IQ.":
-        "Jocul nu poate pune niciun diagnostic și nu trebuie folosit pentru decizii școlare, profesionale, "
-        "juridice sau medicale. Doar un test standardizat, aplicat de un psiholog calificat, măsoară IQ-ul real.",
     "Practising test formats can raise scores on a real test. If you take a clinical assessment, tell the "
     "examiner you have practised.":
         "Exersarea formatelor de test poate crește scorurile la un test real. Dacă faci o evaluare clinică, "
@@ -44,38 +31,25 @@ STRINGS = {
     "Quit": "Ieșire",
     "Support Development": "Susține proiectul",
     "Update available": "Actualizare disponibilă",
-    "WAIS-style cognitive training": "Antrenament cognitiv în stilul WAIS",
     "{n} / 10 skills measured  ·  click any node to train it":
         "{n} / 10 abilități evaluate  ·  clic pe una ca s-o antrenezi",
     "{n} / 10 skills measured  ·  tap any node to train it":
         "{n} / 10 abilități evaluate  ·  atinge una ca s-o antrenezi",
     "  ·  daily streak {streak}": "  ·  serie zilnică: {streak}",
-    "Not an actual IQ test. Scores are training estimates, not clinical results.":
-        "Nu este un test IQ real. Scorurile sunt estimări de antrenament, nu rezultate clinice.",
     "Turn your phone sideways": "Întoarce telefonul orizontal",
     "Puzzleth is played in landscape": "Puzzleth se joacă în modul peisaj",
 
     # ---------------------------------------------------------------- skill tree and its tooltips
     "SCORE": "SCOR",
     "scores hidden": "scoruri ascunse",
-    "FULL SCALE SCORE": "SCOR TOTAL",
     "complete all 10": "termină toate 10",
     ("{n} attempt", "{n} attempts"): ("{n} încercare", "{n} {de}încercări"),
     "Measured  ·  scores hidden  ·  {attempts}": "Evaluat  ·  scoruri ascunse  ·  {attempts}",
     "Measured  ·  scores hidden": "Evaluat  ·  scoruri ascunse",
-    "Scaled score {score} / 19  ·  {label}": "Scor standard {score} / 19  ·  {label}",
-    "Percentile ≈ {percentile}": "Percentila ≈ {percentile}",
     "  ·  raw {raw} / {max}": "  ·  brut {raw} / {max}",
     "Not yet measured": "Încă neevaluat",
-    "Personal best {score}  ·  {attempts}": "Record personal {score}  ·  {attempts}",
     "Puzzle rating {rating}  ·  peak {peak}": "Rating puzzle-uri {rating}  ·  maxim {peak}",
     "Rated puzzle sets available": "Sunt disponibile seturi cu rating",
-    "Index score {score}  ·  {label}": "Scor de indice {score}  ·  {label}",
-    "Complete all of its subtests to compute it": "Termină toate probele lui ca să-l calculezi",
-    "Combines all ten core subtests": "Combină toate cele zece probe de bază",
-    "Training estimate, not a real IQ": "Estimare de antrenament, nu un IQ real",
-    "Take the full assessment to compute it": "Fă evaluarea completă ca să-l calculezi",
-    "Full Scale Score": "Scor total",
 
     # ---------------------------------------------------------------- subtests, indexes, classifications
     "Block Design": "Cuburi",
@@ -92,17 +66,6 @@ STRINGS = {
     "Perceptual Reasoning": "Raționament perceptiv",
     "Working Memory": "Memorie de lucru",
     "Processing Speed": "Viteză de procesare",
-    "Very Superior": "Foarte superior",
-    "Superior": "Superior",
-    "High Average": "Mediu superior",
-    "Average": "Mediu",
-    "Low Average": "Mediu inferior",
-    "Borderline": "Limită",
-    "Extremely Low": "Extrem de scăzut",
-    "Very High": "Foarte ridicat",
-    "Above Average": "Peste medie",
-    "Below Average": "Sub medie",
-    "Low": "Scăzut",
 
     # ---------------------------------------------------------------- what each subtest measures
     "Visual-spatial analysis and construction": "Analiză și construcție vizual-spațială",
@@ -459,9 +422,6 @@ STRINGS = {
     # ---------------------------------------------------------------- results
     "Train again": "Antrenează din nou",
     "Skill tree": "Acasă",
-    "SCALED SCORE": "SCOR STANDARD",
-    "Raw {raw} / {max}   ·   ≈ {percentile}th percentile   ·   mean is 10, SD 3":
-        "Brut {raw} / {max}   ·   ≈ percentila {percentile}   ·   media 10, abaterea standard 3",
     "NEW PERSONAL BEST": "RECORD PERSONAL NOU",
     "Done": "Gata",
     "SUBTEST COMPLETE": "PROBĂ ÎNCHEIATĂ",
@@ -486,10 +446,6 @@ STRINGS = {
         "oprire reale. Asta e toată experiența.",
     "Scores are hidden. Your results are saved, and you can show them any time in Settings.":
         "Scorurile sunt ascunse. Rezultatele tale sunt salvate și le poți afișa oricând din Setări.",
-    "≈ {percentile}th percentile": "≈ percentila {percentile}",
-    "NOT AN ACTUAL IQ TEST": "NU ESTE UN TEST IQ REAL",
-    "Estimates use approximate norms made up for this game. They show trends in your training, not a real IQ.":
-        "Estimări după norme aproximative, create pentru joc. Arată progresul, nu un IQ real.",
     "tap to skip": "atinge ca să sari peste",
     "click to skip": "dă clic ca să sari peste",
     "Paused": "Pauză",
@@ -634,8 +590,6 @@ STRINGS = {
     "A quick look at what a real session is like. Skip whenever you like.":
         "O privire rapidă asupra unei ședințe reale. Poți sări peste oricând.",
     "LEARN": "ÎNVAȚĂ",
-    "How the WAIS works, what a session is like, and how to read the scores":
-        "Cum funcționează WAIS, cum decurge o ședință și cum se citesc scorurile",
 
     # ---------------------------------------------------------------- settings
     "SETTINGS": "SETĂRI",
@@ -644,11 +598,6 @@ STRINGS = {
     "just like the real test.":
         "După fiecare item, arată cum a fost punctat și care era cel mai bun răspuns. Evaluarea completă nu dă "
         "niciodată feedback, exact ca testul real.",
-    "Test-style scores": "Scoruri de test",
-    "Show scaled scores, index scores and the Full Scale Score. Hide them to practise without a number. Puzzle "
-    "ratings and daily results still show.":
-        "Arată scorurile standard, scorurile de indice și scorul total. Ascunde-le ca să exersezi fără cifre. "
-        "Ratingurile și rezultatele zilnice rămân vizibile.",
     "Sound effects": "Efecte sonore",
     "Clicks, timer ticks and the spoken digits in Digit Span. Right/wrong chimes only play when feedback is "
     "shown.":
@@ -675,4 +624,41 @@ STRINGS = {
     "Off": "Dezactivat",
     "Shown": "Afișate",
     "Hidden": "Ascunse",
+    # ---------------------------------------------------------------- grade scores (v0.0.3)
+    "This is not a psychological test": "Acesta nu este un test psihologic",
+    "Puzzleth is a training game modelled on the structure and rules of real one-to-one cognitive assessments. It uses none of their items and is not affiliated with or endorsed by any test publisher.":
+        "Puzzleth este un joc de antrenament inspirat de structura și regulile evaluărilor cognitive individuale reale. Nu folosește niciun item al acestora și nu este afiliat cu niciun editor de teste și nici susținut de vreunul.",
+    "Its grades come from rough standards made up for this game, not from a standardised sample of people. They cannot be compared with the results of a real assessment.":
+        "Calificativele sale provin din standarde aproximative create pentru acest joc, nu dintr-un eșantion standardizat de oameni. Nu pot fi comparate cu rezultatele unei evaluări reale.",
+    "It cannot diagnose anything and must not be used for school, work, legal or medical decisions. Only a standardised assessment given by a qualified psychologist can do that.":
+        "Nu poate stabili niciun diagnostic și nu trebuie folosit pentru decizii școlare, profesionale, juridice sau medicale. Doar o evaluare standardizată, făcută de un psiholog calificat, poate face asta.",
+    "Cognitive puzzle training": "Antrenament cognitiv prin puzzle-uri",
+    "Not a psychological test. Grades are training estimates, not clinical results.":
+        "Nu este un test psihologic. Calificativele sunt estimări de antrenament, nu rezultate clinice.",
+    "NOT A PSYCHOLOGICAL TEST": "NU ESTE UN TEST PSIHOLOGIC",
+    "Grades use rough standards made up for this game. They show trends in your training, nothing more.":
+        "Calificativele folosesc standarde create pentru acest joc. Arată doar evoluția antrenamentului tău.",
+    "How assessments work, what a session is like, and how to read the scores":
+        "Cum funcționează evaluările, cum decurge o ședință și cum se citesc scorurile",
+    "Grades": "Calificative",
+    "Show the D to S grades of subtests, areas and the overall Grade Score. Hide them to practise without a grade. Puzzle ratings and daily results still show.":
+        "Arată calificativele de la D la S ale probelor, ale domeniilor și Calificativul general. Ascunde-le ca să exersezi fără calificativ. Ratingurile puzzle-urilor și rezultatele zilnice rămân afișate.",
+    "Grade Score": "Calificativ general",
+    "GRADE SCORE": "CALIFICATIV GENERAL",
+    "GRADE": "CALIFICATIV",
+    "Grade {grade}  ·  {label}": "Calificativ {grade}  ·  {label}",
+    "Personal best {grade}  ·  {attempts}": "Record personal {grade}  ·  {attempts}",
+    ("{n} skill point of 19", "{n} skill points of 19"):
+        ("{n} punct de abilitate din 19", "{n} {de}puncte de abilitate din 19"),
+    "Raw {raw} / {max}": "Brut {raw} / {max}",
+    "Complete all of its subtests to grade it": "Termină toate probele lui ca să primească un calificativ",
+    "Combines all ten subtests": "Combină toate cele zece probe",
+    "Take the full assessment to grade it": "Fă evaluarea completă ca să primească un calificativ",
+    "Grades run from D up to S": "Calificativele merg de la D la S",
+    "A training estimate, not a clinical result": "O estimare de antrenament, nu un rezultat clinic",
+    "Outstanding": "Excepțional",
+    "Excellent": "Excelent",
+    "Solid": "Solid",
+    "Developing": "În progres",
+    "Just getting started": "Abia la început",
 }

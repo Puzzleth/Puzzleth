@@ -234,8 +234,10 @@ class Profile:
         entry["best"] = max(entry["best"], scaled)
         self.save()
 
-    def record_battery(self, scaled_by_code, indexes, fsiq):
-        self.data["batteries"].append({"ts": time.time(), "scaled": scaled_by_code, "indexes": indexes, "fsiq": fsiq})
+    def record_battery(self, scaled_by_code, indexes, overall):
+        # (older entries kept the overall points under "fsiq")
+        self.data["batteries"].append({"ts": time.time(), "scaled": scaled_by_code, "indexes": indexes,
+                                       "overall": overall})
         self.save()
 
     def last_scaled(self, code):
