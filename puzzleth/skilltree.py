@@ -1,7 +1,8 @@
-"""The skill-point constellation: FSIQ at the centre, four index nodes, ten subtest nodes.
+"""The skill-point constellation: the overall Grade Score at the centre, four area nodes, ten
+subtest nodes.
 
-Each subtest node is a ring of 19 skill points, one per scaled-score point (WAIS scaled
-scores run 1-19, mean 10). Index and FSIQ nodes are progress rings over their score range.
+Each subtest node is a ring of 19 skill points (10 is average) around its letter grade. Area and
+overall nodes are progress rings around theirs.
 """
 import math
 
@@ -20,7 +21,7 @@ FS_RING = 82
 
 
 class SkillTree:
-    # offsets from the FSIQ node, left half; the right half is mirrored
+    # offsets from the overall node, left half; the right half is mirrored
     _LEFT = {
         "VCI": (-300, -145), "IN": (-450, -270), "VC": (-565, -145), "SI": (-450, -20),
         "WMI": (-250, 145), "AR": (-525, 130), "DS": (-350, 255),
@@ -72,7 +73,7 @@ class SkillTree:
             if math.hypot(x - px, y - py) <= self.idx_ring + 6:
                 return idx
         if math.hypot(x - self.center[0], y - self.center[1]) <= self.fs_ring + 6:
-            return "FSIQ"
+            return "GS"
         return None
 
     # -------------------------------------------------------------- animation schedule
@@ -100,7 +101,7 @@ class SkillTree:
         scaled = data.get("scaled", {})
         best = data.get("best", {})
         indexes = data.get("indexes", {})
-        fs = data.get("fsiq")
+        fs = data.get("overall")
         hide = data.get("hide", False)   # show what's been measured, but no numbers
 
         # connections
@@ -122,7 +123,7 @@ class SkillTree:
             self._sub_node(surf, pos, code, s, filled, ghost, T.INDEX_COLORS[idx], hover == code, t, hide)
         for idx, pos in self.index_pos.items():
             self._index_node(surf, pos, idx, indexes.get(idx), self._idx_frac(idx, anim), hover == idx, t, hide)
-        self._fsiq_node(surf, self.center, fs, self._fs_frac(anim), hover == "FSIQ", t, hide)
+        self._overall_node(surf, self.center, fs, self._fs_frac(anim), hover == "GS", t, hide)
 
     def _link(self, surf, a, b, col, lit, t, ra, rb):
         ax, ay = a
@@ -153,9 +154,10 @@ class SkillTree:
         if scaled and hide:
             gfx.text(surf, i18n.abbr(code), (x, y), round(18 * k), col, bold=True, anchor="center")
         else:
-            gap = 3 if T.large_text else 0   # large text would run the number into the code
-            if scaled:
-                gfx.text(surf, str(filled), (x, y - (3 + gap) * k), 24, T.TEXT, bold=True, anchor="center")
+            gap = 3 if T.large_text else 0   # large text would run the letter into the code
+            if scaled:   # the grade, once its ring has filled
+                if filled >= scaled:
+                    gfx.grade_badge(surf, scoring.grade(scaled), (x, y - (6 + gap) * k), round(20 * k), t)
             else:
                 gfx.text(surf, "–", (x, y - (3 + gap) * k), 22, T.DIM, bold=True, anchor="center")
             gfx.text(surf, i18n.abbr(code), (x, y + (15 + gap) * k), round(11 * k), col if scaled else T.DIM,
@@ -196,13 +198,13 @@ class SkillTree:
             return
         gap = 3 if T.large_text else 0
         if has:
-            val = int(round(50 + (score - 50) * frac))
-            gfx.text(surf, str(val), (x, y - (5 + gap) * k), round(30 * k), T.TEXT, bold=True, anchor="center")
+            gfx.grade_badge(surf, scoring.composite_grade(score), (x, y - (5 + gap) * k), round(30 * k), t,
+                            alpha=255 * frac)
         else:
             gfx.text(surf, "?", (x, y - (5 + gap) * k), round(28 * k), T.DIM, bold=True, anchor="center")
         gfx.text(surf, i18n.abbr(idx), (x, y + (20 + gap) * k), round(12 * k), col, bold=True, anchor="center")
 
-    def _fsiq_node(self, surf, pos, score, frac, hover, t, hide=False):
+    def _overall_node(self, surf, pos, score, frac, hover, t, hide=False):
         x, y = pos
         k = self.scale
         col = T.GOLD
@@ -226,10 +228,9 @@ class SkillTree:
             gfx.text(surf, "scores hidden", (x, y + 22 * k), gfx.fit_width("scores hidden", small, 2 * r - 24), T.MUTED,
                      anchor="center")
         elif has:
-            val = int(round(40 + (score - 40) * frac))
-            gfx.text(surf, str(val), (x, y - 8 * k), round(48 * k), T.TEXT, bold=True, anchor="center")
-            gfx.text(surf, "FULL SCALE SCORE", (x, y + 26 * k),
-                     gfx.fit_width("FULL SCALE SCORE", small, 2 * r - 24, True), col, bold=True, anchor="center")
+            gfx.grade_badge(surf, scoring.composite_grade(score), (x, y - 8 * k), round(50 * k), t, alpha=255 * frac)
+            gfx.text(surf, "GRADE SCORE", (x, y + 28 * k),
+                     gfx.fit_width("GRADE SCORE", small, 2 * r - 24, True), col, bold=True, anchor="center")
         else:
             gfx.text(surf, "SCORE", (x, y - 6 * k), round(28 * k), T.DIM, bold=True, anchor="center")
             gfx.text(surf, "complete all 10", (x, y + 22 * k), gfx.fit_width("complete all 10", small, 2 * r - 24),

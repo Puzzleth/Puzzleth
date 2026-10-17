@@ -1,4 +1,4 @@
-"""French. The player is addressed with "vous"; subtest and index names are those of the French WAIS-IV."""
+"""French. The player is addressed with "vous"; subtest and area names are the usual French ones."""
 import re
 
 ABBREVIATIONS = {
@@ -26,19 +26,6 @@ STRINGS = {
     "You can change it again any time in Settings.": "Vous pourrez la changer à tout moment dans les paramètres.",
     "Language": "Langue",
     "I understand": "J'ai compris",
-    "This is not an actual IQ test": "Ceci n'est pas un vrai test de QI",
-    "Puzzleth is a training game modelled on the structure and rules of the WAIS-IV. It is not the WAIS, uses "
-    "none of its items, and is not affiliated with or endorsed by its publisher.":
-        "Puzzleth est un jeu d'entraînement inspiré de la structure et des règles de la WAIS-IV. Ce n'est pas la "
-        "WAIS : il n'en utilise aucun item et n'est ni affilié à son éditeur, ni approuvé par lui.",
-    "Scores come from approximate norms made up for this game, not from a standardised sample of people. The "
-    "scores shown here cannot be compared with a real IQ score.":
-        "Les scores reposent sur des normes approximatives inventées pour ce jeu, pas sur un échantillon "
-        "étalonné. Ils ne sont pas comparables à un vrai score de QI.",
-    "It cannot diagnose anything and must not be used for school, work, legal or medical decisions. Only a "
-    "standardised test given by a qualified psychologist produces a real IQ.":
-        "Il ne permet aucun diagnostic et ne doit pas servir à des décisions scolaires, professionnelles, "
-        "juridiques ou médicales. Seul un test étalonné, fait par un psychologue qualifié, donne un vrai QI.",
     "Practising test formats can raise scores on a real test. If you take a clinical assessment, tell the "
     "examiner you have practised.":
         "S'entraîner aux formats de test peut améliorer les scores à un vrai test. Si vous passez un bilan "
@@ -55,38 +42,25 @@ STRINGS = {
     "Quit": "Quitter",
     "Support Development": "Soutenir le projet",
     "Update available": "Mise à jour disponible",
-    "WAIS-style cognitive training": "Entraînement cognitif façon WAIS",
     "{n} / 10 skills measured  ·  click any node to train it":
         "{n} / 10 compétences  ·  cliquez-en une pour l'entraîner",
     "{n} / 10 skills measured  ·  tap any node to train it":
         "{n}/10 compétences  ·  touchez-en une pour l'entraîner",
     "  ·  daily streak {streak}": "  ·  série quotidienne : {streak}",
-    "Not an actual IQ test. Scores are training estimates, not clinical results.":
-        "Pas un vrai test de QI. Les scores sont des estimations, pas des résultats cliniques.",
     "Turn your phone sideways": "Tournez votre téléphone",
     "Puzzleth is played in landscape": "Puzzleth se joue en mode paysage",
 
     # ---------------------------------------------------------------- skill tree and its tooltips
     "SCORE": "SCORE",
     "scores hidden": "scores masqués",
-    "FULL SCALE SCORE": "SCORE GLOBAL",
     "complete all 10": "faites les 10",
     ("{n} attempt", "{n} attempts"): ("{n} tentative", "{n} tentatives"),
     "Measured  ·  scores hidden  ·  {attempts}": "Mesuré  ·  scores masqués  ·  {attempts}",
     "Measured  ·  scores hidden": "Mesuré  ·  scores masqués",
-    "Scaled score {score} / 19  ·  {label}": "Note standard {score} / 19  ·  {label}",
-    "Percentile ≈ {percentile}": "Centile ≈ {percentile}",
     "  ·  raw {raw} / {max}": "  ·  note brute {raw} / {max}",
     "Not yet measured": "Pas encore mesuré",
-    "Personal best {score}  ·  {attempts}": "Record personnel {score}  ·  {attempts}",
     "Puzzle rating {rating}  ·  peak {peak}": "Cote puzzles {rating}  ·  record {peak}",
     "Rated puzzle sets available": "Séries classées disponibles",
-    "Index score {score}  ·  {label}": "Indice {score}  ·  {label}",
-    "Complete all of its subtests to compute it": "Terminez toutes ses épreuves pour le calculer",
-    "Combines all ten core subtests": "Combine les dix épreuves principales",
-    "Training estimate, not a real IQ": "Estimation d'entraînement, pas un vrai QI",
-    "Take the full assessment to compute it": "Passez l'évaluation complète pour le calculer",
-    "Full Scale Score": "Score global",
 
     # ---------------------------------------------------------------- subtests, indexes, classifications
     "Block Design": "Cubes",
@@ -103,17 +77,6 @@ STRINGS = {
     "Perceptual Reasoning": "Raisonnement perceptif",
     "Working Memory": "Mémoire de travail",
     "Processing Speed": "Vitesse de traitement",
-    "Very Superior": "Très supérieur",
-    "Superior": "Supérieur",
-    "High Average": "Moyen fort",
-    "Average": "Moyen",
-    "Low Average": "Moyen faible",
-    "Borderline": "Limite",
-    "Extremely Low": "Très faible",
-    "Very High": "Très élevé",
-    "Above Average": "Au-dessus de la moyenne",
-    "Below Average": "Au-dessous de la moyenne",
-    "Low": "Faible",
 
     # ---------------------------------------------------------------- what each subtest measures
     "Visual-spatial analysis and construction": "Analyse et construction visuospatiales",
@@ -471,9 +434,6 @@ STRINGS = {
     # ---------------------------------------------------------------- results
     "Train again": "Recommencer",
     "Skill tree": "Accueil",
-    "SCALED SCORE": "NOTE STANDARD",
-    "Raw {raw} / {max}   ·   ≈ {percentile}th percentile   ·   mean is 10, SD 3":
-        "Note brute {raw} / {max}   ·   ≈ {percentile}e centile   ·   moyenne 10, écart type 3",
     "NEW PERSONAL BEST": "NOUVEAU RECORD PERSONNEL",
     "Done": "Terminé",
     "SUBTEST COMPLETE": "ÉPREUVE TERMINÉE",
@@ -501,10 +461,6 @@ STRINGS = {
     "Scores are hidden. Your results are saved, and you can show them any time in Settings.":
         "Les scores sont masqués. Vos résultats sont enregistrés, et vous pouvez les afficher à tout moment dans "
         "les paramètres.",
-    "≈ {percentile}th percentile": "≈ {percentile}e centile",
-    "NOT AN ACTUAL IQ TEST": "CE N'EST PAS UN VRAI TEST DE QI",
-    "Estimates use approximate norms made up for this game. They show trends in your training, not a real IQ.":
-        "Estimations fondées sur des normes inventées pour ce jeu : elles suivent vos progrès, pas un vrai QI.",
     "tap to skip": "touchez pour passer",
     "click to skip": "cliquez pour passer",
     "Paused": "En pause",
@@ -653,8 +609,6 @@ STRINGS = {
     "A quick look at what a real session is like. Skip whenever you like.":
         "Un aperçu rapide d'une vraie séance. Vous pouvez passer à tout moment.",
     "LEARN": "APPRENDRE",
-    "How the WAIS works, what a session is like, and how to read the scores":
-        "Comment fonctionne la WAIS, comment se passe une séance et comment lire les scores",
 
     # ---------------------------------------------------------------- settings
     "SETTINGS": "PARAMÈTRES",
@@ -663,11 +617,6 @@ STRINGS = {
     "just like the real test.":
         "Après chaque item, montrer les points obtenus et la meilleure réponse. L'évaluation complète ne donne "
         "jamais de retour, comme le vrai test.",
-    "Test-style scores": "Scores de type test",
-    "Show scaled scores, index scores and the Full Scale Score. Hide them to practise without a number. Puzzle "
-    "ratings and daily results still show.":
-        "Notes standard, indices et score global. Masquez-les pour vous entraîner sans chiffres : les cotes et "
-        "le défi du jour restent affichés.",
     "Sound effects": "Effets sonores",
     "Clicks, timer ticks and the spoken digits in Digit Span. Right/wrong chimes only play when feedback is "
     "shown.":
@@ -695,6 +644,43 @@ STRINGS = {
     "Off": "Désactivé",
     "Shown": "Affichés",
     "Hidden": "Masqués",
+    # ---------------------------------------------------------------- grade scores (v0.0.3)
+    "This is not a psychological test": "Ceci n'est pas un test psychologique",
+    "Puzzleth is a training game modelled on the structure and rules of real one-to-one cognitive assessments. It uses none of their items and is not affiliated with or endorsed by any test publisher.":
+        "Puzzleth est un jeu d'entraînement inspiré de la structure et des règles des vraies évaluations cognitives individuelles. Il n'en utilise aucun item et n'est affilié à aucun éditeur de tests, ni approuvé par l'un d'eux.",
+    "Its grades come from rough standards made up for this game, not from a standardised sample of people. They cannot be compared with the results of a real assessment.":
+        "Ses rangs reposent sur des standards approximatifs inventés pour ce jeu, pas sur un échantillon étalonné. Ils ne sont pas comparables aux résultats d'une vraie évaluation.",
+    "It cannot diagnose anything and must not be used for school, work, legal or medical decisions. Only a standardised assessment given by a qualified psychologist can do that.":
+        "Il ne permet aucun diagnostic et ne doit pas servir à des décisions scolaires, professionnelles, juridiques ou médicales. Seule une évaluation étalonnée, faite par un psychologue qualifié, le permet.",
+    "Cognitive puzzle training": "Entraînement cognitif par les puzzles",
+    "Not a psychological test. Grades are training estimates, not clinical results.":
+        "Pas un test psychologique. Les rangs sont des estimations, pas des résultats cliniques.",
+    "NOT A PSYCHOLOGICAL TEST": "CE N'EST PAS UN TEST PSYCHOLOGIQUE",
+    "Grades use rough standards made up for this game. They show trends in your training, nothing more.":
+        "Rangs fondés sur des standards inventés pour ce jeu : ils suivent vos progrès, rien de plus.",
+    "How assessments work, what a session is like, and how to read the scores":
+        "Comment fonctionnent les évaluations, comment se passe une séance et comment lire les scores",
+    "Grades": "Rangs",
+    "Show the D to S grades of subtests, areas and the overall Grade Score. Hide them to practise without a grade. Puzzle ratings and daily results still show.":
+        "Afficher les rangs de D à S des épreuves, des domaines et le Rang global. Masquez-les pour vous entraîner sans rang. Les cotes des puzzles et les résultats du défi quotidien restent affichés.",
+    "Grade Score": "Rang global",
+    "GRADE SCORE": "RANG GLOBAL",
+    "GRADE": "RANG",
+    "Grade {grade}  ·  {label}": "Rang {grade}  ·  {label}",
+    "Personal best {grade}  ·  {attempts}": "Record personnel {grade}  ·  {attempts}",
+    ("{n} skill point of 19", "{n} skill points of 19"):
+        ("{n} point de compétence sur 19", "{n} points de compétence sur 19"),
+    "Raw {raw} / {max}": "Note brute {raw} / {max}",
+    "Complete all of its subtests to grade it": "Terminez toutes ses épreuves pour obtenir son rang",
+    "Combines all ten subtests": "Combine les dix épreuves",
+    "Take the full assessment to grade it": "Passez l'évaluation complète pour obtenir son rang",
+    "Grades run from D up to S": "Les rangs vont de D à S",
+    "A training estimate, not a clinical result": "Une estimation d'entraînement, pas un résultat clinique",
+    "Outstanding": "Exceptionnel",
+    "Excellent": "Excellent",
+    "Solid": "Solide",
+    "Developing": "En progrès",
+    "Just getting started": "Premiers pas",
 }
 
 STRINGS = {key: tuple(map(spacing, value)) if isinstance(value, tuple) else spacing(value)

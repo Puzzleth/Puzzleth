@@ -131,10 +131,12 @@ def music_ended():
         return False
 
 
-def stream_music(url):
-    """Play a song served beside the page (see tools/build_web.sh), downloading only that one."""
+def play_music(urls):
+    """Have the page play the songs served beside it (see tools/build_web.sh) in a shuffled loop, fading
+    each in and out and moving on to the next by itself (puzzleth_play_music in tools/web/puzzleth.tmpl)."""
+    import json
     try:
-        _window().puzzleth_stream_music(url)
+        _window().puzzleth_play_music(json.dumps(list(urls)))
     except Exception:
         pass
 
@@ -147,8 +149,19 @@ def stop_music():
 
 
 def music_volume(v):
+    """The volume of play_music's songs at their loudest (they fade in and out under it)."""
     try:
         _window().puzzleth_music_volume(v)
+    except Exception:
+        pass
+
+
+def keep_awake(on):
+    """Keep the phone's screen from dimming and locking (or let it again)."""
+    if not IS_WEB:
+        return
+    try:
+        _window().puzzleth_keep_awake(bool(on))
     except Exception:
         pass
 

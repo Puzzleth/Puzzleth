@@ -1,28 +1,29 @@
 # Puzzleth
 
-**v0.0.2 PRE-ALPHA**
+**v0.0.3 PRE-ALPHA**
 
-A puzzle game built on the structure and rules of a real intelligence test, the WAIS-IV. Every
-puzzle is generated fresh, your skills grow as a constellation of skill-point rings, and harder
-puzzles keep coming after the real test runs out.
+A puzzle game built on the structure and rules of real one-to-one cognitive assessments. Every
+puzzle is generated fresh, your skills grow as a constellation of skill-point rings graded from D to
+S, and harder puzzles keep coming after the real test runs out.
 
 ![The skill tree](docs/screenshots/skill-tree.png)
 
-> **This is not an actual IQ test.** It is not the WAIS, uses none of its items, and its scores
-> come from approximate norms made up for this game. They can't be compared with a real IQ, can't
-> diagnose anything, and must not be used for school, work, legal or medical decisions.
+> **This is not a psychological test.** It uses no real test's items, and its grades come from
+> rough standards made up for this game. They can't be compared with the results of a real
+> assessment, can't diagnose anything, and must not be used for school, work, legal or medical
+> decisions.
 
 ## Who it's for
 
 - **If you're nervous about an upcoming assessment.** Learn what a real session is like: the
   examiner who won't say if you're right, the timers, going back to easier items, being stopped
   after a few misses. A short walkthrough explains each of these before your first full run, and
-  you can hide all test-style scores so you can rehearse without worrying about a number.
+  you can hide all grades so you can rehearse without worrying about a result.
 - **If you want a challenge.** Rated puzzle sets work like a chess puzzle rating, and difficulty
   keeps climbing past the real test's hardest item. The daily challenge gives everyone the same
   ten puzzles each day, with a result you can copy and share.
 - **If you're just curious.** The Learn screen explains how the test works, what each subtest is
-  for, how to read the scores, and some common IQ myths.
+  for, how to read the scores, and some common myths.
 
 ## Play in your browser
 
@@ -99,12 +100,12 @@ controls.
 
 | Mode | What it is |
 |---|---|
-| **Full assessment** | All ten core subtests in the real order and under test conditions: no feedback, real time limits, real stopping rules. Ends with your index scores and a Full Scale Score. |
+| **Full assessment** | All ten core subtests in the real order and under test conditions: no feedback, real time limits, real stopping rules. Ends with a D to S grade for each of the four areas and your overall Grade Score. |
 | **Training** | Click any node in the skill tree to practise one subtest under the real rules, with optional feedback after every item. |
 | **Rated sets** | Ten puzzles matched to your puzzle rating (Matrix Reasoning, Visual Puzzles, Block Design, Arithmetic). Available from each of those subtests' intro screens. |
 | **Daily challenge** | Ten puzzles from one subtest, from easy to beyond the real test. Everyone gets the same puzzles each day, and only your first try counts. |
 | **Leaderboard** | Compare your puzzle ratings with players everywhere, one board per subtest with rated sets. Joining is up to each player. |
-| **Learn** | What to expect in a real session, the ten subtests, the four indexes, how scores work, myths and facts. |
+| **Learn** | What to expect in a real session, the ten subtests, the four areas, how scores work, myths and facts. |
 
 <p>
   <img src="docs/screenshots/matrix-reasoning.png" width="49%" alt="Matrix Reasoning">
@@ -115,23 +116,26 @@ controls.
 
 ## The subtests
 
-| Index | Subtest | Notes |
+| Area | Subtest | Notes |
 |---|---|---|
-| Verbal Comprehension | Similarities, Vocabulary, Information | Multiple choice, with options written to match WAIS 2/1/0 scoring |
+| Verbal Comprehension | Similarities, Vocabulary, Information | Multiple choice, with options written to match how examiners award 2, 1 or 0 points |
 | Perceptual Reasoning | Block Design, Matrix Reasoning, Visual Puzzles | Fully generated; every puzzle is checked to have exactly one solution |
 | Working Memory | Digit Span (forward, backward, sequencing), Arithmetic | One digit per second; Arithmetic hides the problem after it has been "read" |
 | Processing Speed | Symbol Search, Coding | 120-second limits; Coding uses a symbol-to-digit key |
 
-The WAIS administration rules are built in: adult **start points**; **reversal**, where earlier
+Real administration rules are built in: adult **start points**; **reversal**, where earlier
 items are given in reverse until two in a row are fully right, with full credit for the easier
 items skipped; **discontinue** rules; per-item **time limits**; and Block Design **speed bonuses**.
 
 ## How scoring works
 
-**Test-style scores.** `scaled = 10 + 3·(raw − mean)/SD`, clamped to 1–19. Index scores and the
-Full Scale Score come from the mean z-score of their subtests, corrected for how closely the
-subtests correlate: `z = mean_z / sqrt((1 + (n−1)·r) / n)`, then `score = 100 + 15·z`. The means
-and SDs are estimates tuned to this game, not real norms. Hide these scores any time in Settings.
+**Grade Scores.** Every subtest, each of the four areas and the full assessment get a letter grade:
+D, C, B, A, and S for the very best (drawn in gold; a D comes out battered). A subtest's skill
+points are `10 + 3·(raw − mean)/SD`, clamped to 1–19, one per pip on its ring. An area or the
+overall grade combines its subtests' z-scores, corrected for how closely they correlate:
+`z = mean_z / sqrt((1 + (n−1)·r) / n)`. The grade comes from z: S from +2, A from +1, B from −⅓
+(around average), C from −1⅓, D below. The means and SDs are estimates tuned to this game, not real
+norms. Hide the grades any time in Settings.
 
 **Puzzle rating.** Each difficulty level has a nominal rating. Level 1 is about 650, and the real
 test's last item is 1800. After each puzzle your rating moves the Elo way:
@@ -149,9 +153,6 @@ Puzzles and multi-step word problems.
   language. To add a language, see `puzzleth/i18n.py`.
 - **Practice effects.** Practising test formats can raise scores on a real test. If you are
   assessed by a professional, tell them you've practised.
-- **Trademarks.** WAIS and Wechsler Adult Intelligence Scale are trademarks of their owner, NCS
-  Pearson, Inc. This project is independent and not affiliated with or endorsed by them; the
-  names are used only to describe what the game is modelled on.
 
 ## Development
 
@@ -188,7 +189,7 @@ with [PyInstaller](https://pyinstaller.org), checks that it starts, and publishe
 Releases page.
 
 ```sh
-git tag v0.0.2 && git push origin v0.0.2
+git tag v0.0.3 && git push origin v0.0.3
 ```
 
 To build it yourself on Windows, run `pip install pyinstaller pillow`, then the `pyinstaller`

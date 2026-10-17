@@ -15,11 +15,23 @@ FPS = 60
 # of the phone, which the page can show larger; scenes arrange themselves to fit it.
 compact = False
 
+# Screens wider than the canvas (most phones, ultrawide monitors) widen it to their own shape, up to
+# MAX_ASPECT, so that the screens laid out from its edges reach the edges of the screen.
+MAX_ASPECT = 2.4
 
-def set_compact(on):
+
+def canvas_width(on, aspect=None):
+    """The canvas width for the compact (``on``) or full layout on a screen ``aspect`` times wider than tall."""
+    base, h = (COMPACT_W, COMPACT_H) if on else (FULL_W, FULL_H)
+    if aspect is None:
+        return base
+    return max(base, min(round(h * MAX_ASPECT), round(h * aspect)))
+
+
+def set_compact(on, aspect=None):
     global compact, W, H
     compact = on
-    W, H = (COMPACT_W, COMPACT_H) if on else (FULL_W, FULL_H)
+    W, H = canvas_width(on, aspect), COMPACT_H if on else FULL_H
 
 BG = (8, 11, 24)
 BG2 = (22, 28, 58)
@@ -41,14 +53,23 @@ INDEX_COLORS = {
     "PRI": (64, 224, 170),
     "WMI": (182, 140, 255),
     "PSI": (255, 170, 80),
-    "FSIQ": GOLD,
+    "GS": GOLD,
 }
 INDEX_NAMES = {
     "VCI": "Verbal Comprehension",
     "PRI": "Perceptual Reasoning",
     "WMI": "Working Memory",
     "PSI": "Processing Speed",
-    "FSIQ": "Full Scale Score",
+    "GS": "Grade Score",
+}
+
+# Letter grades (see scoring.py): S is gold, D is a dull, battered grey (see gfx.grade_badge)
+GRADE_COLORS = {
+    "S": GOLD,
+    "A": (86, 222, 150),
+    "B": (120, 160, 255),
+    "C": (255, 170, 80),
+    "D": (150, 140, 136),
 }
 
 _FONT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fonts")

@@ -1,7 +1,7 @@
 """Verbal Comprehension subtests: Similarities, Vocabulary, Information.
 
 The real subtests are free-response; here they are multiple choice, but the options are
-written to mirror how a WAIS examiner awards 2, 1 or 0 points.
+written to mirror how a real examiner awards 2, 1 or 0 points.
 """
 import pygame
 

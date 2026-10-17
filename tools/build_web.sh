@@ -6,6 +6,17 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+# The page loads pygbag's runtime from the CDN folder of the pygbag version that built it, and the
+# template needs that folder to have browserfs.min.js. 0.9.2's (archives/0.9) has it; 0.9.3's
+# (cdn/0.9.3) doesn't, and its page never gets past the loading bar. A project .venv is used if there is one.
+[[ -x .venv/bin/python ]] && export PATH="$PWD/.venv/bin:$PATH"
+PYGBAG_VERSION=0.9.2
+found=$(python3 -c 'import pygbag; print(getattr(pygbag, "VERSION", getattr(pygbag, "__version__", "?")))' 2>/dev/null || echo none)
+if [[ "$found" != "$PYGBAG_VERSION" ]]; then
+  echo "error: pygbag $PYGBAG_VERSION is needed, found $found:  pip install pygbag==$PYGBAG_VERSION fonttools" >&2
+  exit 1
+fi
+
 # only the game itself goes into the web package (not tests, docs or screenshots)
 rm -rf build/Puzzleth build/web
 mkdir -p build/Puzzleth/puzzleth

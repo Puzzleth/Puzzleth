@@ -1,8 +1,8 @@
-"""Raw score -> scaled score -> index score -> FSIQ, following the WAIS-IV structure.
+"""Raw score -> skill points -> area and overall points -> Grade Scores (D, C, B, A, S).
 
-The real WAIS norms are proprietary and depend on the exact items, so these are rough
-approximations tuned to this game's versions of the subtests (e.g. multiple-choice verbal
-items are easier than free recall). Treat every number as a training estimate, not a real IQ.
+The norms are rough standards made up for this game's versions of the subtests (e.g. multiple-choice
+verbal items are easier than free recall). Players only ever see letter grades; the points behind
+them are an internal step. Treat every grade as a training estimate, nothing more.
 """
 import math
 
@@ -27,12 +27,25 @@ INDEX_SUBTESTS = {
     "PSI": ["SS", "CD"],
 }
 
-# Typical inter-subtest correlations used to turn a mean of scaled scores into a composite.
+# Typical inter-subtest correlations used to turn a mean of skill points into an area or overall value.
 _R_INDEX = 0.6
-_R_FSIQ = 0.45
+_R_OVERALL = 0.45
+
+# Grades from the lowest to the best of the best, and how far above the average (in standard
+# deviations) each one starts: B is around average, S is the top two or three in a hundred.
+GRADES = ("D", "C", "B", "A", "S")
+_GRADE_FROM = {"S": 2.0, "A": 1.0, "B": -1 / 3, "C": -4 / 3}
+GRADE_NAMES = {
+    "S": "Outstanding",
+    "A": "Excellent",
+    "B": "Solid",
+    "C": "Developing",
+    "D": "Just getting started",
+}
 
 
 def scaled_score(code, raw):
+    """Skill points, 1 to 19 (10 is average): one per pip on the subtest's ring."""
     mean, sd = NORMS[code]
     return int(max(1, min(19, round(10 + 3 * (raw - mean) / sd))))
 
@@ -48,55 +61,42 @@ def index_score(scaled):
     return _composite(scaled, _R_INDEX, 50, 150)
 
 
-def fsiq(scaled):
-    return _composite(scaled, _R_FSIQ, 40, 160)
+def overall_score(scaled):
+    return _composite(scaled, _R_OVERALL, 40, 160)
 
 
 def compute_indexes(scaled_by_code):
-    """Returns ({index: score}, fsiq or None) using whatever subtests are available."""
+    """Returns ({area: points}, overall points or None) using whatever subtests are available."""
     out = {}
     for idx, codes in INDEX_SUBTESTS.items():
         if all(c in scaled_by_code for c in codes):
             out[idx] = index_score([scaled_by_code[c] for c in codes])
     all_codes = [c for codes in INDEX_SUBTESTS.values() for c in codes]
-    full = fsiq([scaled_by_code[c] for c in all_codes]) if all(c in scaled_by_code for c in all_codes) else None
+    full = overall_score([scaled_by_code[c] for c in all_codes]) if all(c in scaled_by_code for c in all_codes) else None
     return out, full
 
 
-def percentile(score, mean=100, sd=15):
-    z = (score - mean) / sd
-    p = 50 * (1 + math.erf(z / math.sqrt(2)))
-    return max(0.1, min(99.9, p))
+def _grade(z):
+    for letter in ("S", "A", "B", "C"):
+        if z >= _GRADE_FROM[letter] - 1e-9:
+            return letter
+    return "D"
 
 
-def scaled_percentile(scaled):
-    return percentile(scaled, 10, 3)
+def grade(scaled):
+    """A subtest's grade from its skill points."""
+    return _grade((scaled - 10) / 3)
 
 
-def classification(score):
-    """WAIS-IV qualitative descriptors for composite scores."""
-    if score >= 130:
-        return "Very Superior"
-    if score >= 120:
-        return "Superior"
-    if score >= 110:
-        return "High Average"
-    if score >= 90:
-        return "Average"
-    if score >= 80:
-        return "Low Average"
-    if score >= 70:
-        return "Borderline"
-    return "Extremely Low"
+def composite_grade(score):
+    """An area's or the overall Grade Score from its points."""
+    return _grade((score - 100) / 15)
 
 
-def scaled_label(s):
-    if s >= 16:
-        return "Very High"
-    if s >= 13:
-        return "Above Average"
-    if s >= 8:
-        return "Average"
-    if s >= 5:
-        return "Below Average"
-    return "Low"
+def grade_rank(letter):
+    """0 for D up to 4 for S."""
+    return GRADES.index(letter)
+
+
+def grade_name(letter):
+    return GRADE_NAMES[letter]

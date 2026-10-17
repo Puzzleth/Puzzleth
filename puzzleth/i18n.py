@@ -64,7 +64,7 @@ def n(count, one, other, **values):
 
 
 def abbr(code):
-    """A subtest or index abbreviation (BD, VCI, FSIQ...) as tests in this language write it."""
+    """A subtest or index abbreviation (BD, VCI...) as tests in this language write it."""
     return _ABBREVIATIONS.get(_language, {}).get(code, code)
 
 
