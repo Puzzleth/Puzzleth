@@ -1,0 +1,20 @@
+title: "Puzzleth"
+description: "Development notes, personal journal, and progress on the Puzzleth brand."
+url: "https://puzzleth.github.io"
+baseurl: "/Puzzleth"
+timezone: Europe/Bucharest
+permalink: /blog/:year/:month/:day/:title/
+header_pages:
+  - blog/blog.md
+  - privacy.html
+
+theme: minima
+plugins:
+  - jekyll-feed
+
+markdown: kramdown
+
+exclude:
+  - .venv
+  - README.md
+  - LICENSE
