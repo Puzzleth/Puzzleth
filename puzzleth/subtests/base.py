@@ -109,7 +109,8 @@ class Subtest:
         gfx.text(surf, "Pause" if self.touch else "Pause  (Esc)", r.center, 15, T.MUTED, bold=True,
                  anchor="center")
 
-    def draw_timer(self, surf, remaining, limit, center=(T.W - 70, 40), r=22):
+    def draw_timer(self, surf, remaining, limit, center=None, r=22):
+        center = center or (T.W - 70, 40)
         frac = max(0.0, remaining / limit) if limit else 0
         col = self.accent if frac > 0.25 else gfx.lerp_color(T.BAD, self.accent, frac * 4)
         if frac <= 0.25:

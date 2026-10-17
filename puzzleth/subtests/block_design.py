@@ -57,7 +57,7 @@ class BlockDesign(ItemSubtest):
                 "The design is checked automatically. Space or the Give up button skips an item."]
 
     def setup(self):
-        self.giveup_btn = Button((880 - 90, 452 if T.compact else 660, 180, 44), "Give up", lambda: self.submit(0, "Item abandoned."),
+        self.giveup_btn = Button((self._blocks_x() - 90, 452 if T.compact else 660, 180, 44), "Give up", lambda: self.submit(0, "Item abandoned."),
                                  T.MUTED, hotkeys=(pygame.K_SPACE,), size=16, sound=None)
 
     def item_max(self, n):
@@ -178,8 +178,16 @@ class BlockDesign(ItemSubtest):
         bs = {2: 112, 3: 92, 4: 76}[size]
         gap = 8
         total = size * bs + (size - 1) * gap
-        ox, oy = 880 - total // 2, self._mid_y() - total // 2
+        ox, oy = self._blocks_x() - total // 2, self._mid_y() - total // 2
         return pygame.Rect(ox + x * (bs + gap), oy + y * (bs + gap), bs, bs)
+
+    @staticmethod
+    def _model_x():
+        return T.W // 2 - 260
+
+    @staticmethod
+    def _blocks_x():
+        return T.W // 2 + 240
 
     @staticmethod
     def _mid_y():
@@ -242,11 +250,11 @@ class BlockDesign(ItemSubtest):
         size = it["size"]
         # model
         label_y = 84 if T.compact else 160
-        gfx.text(surf, "MODEL", (380, label_y), 14, self.accent, bold=True, anchor="center")
-        gfx.text(surf, "YOUR BLOCKS", (880, label_y), 14, T.MUTED, bold=True, anchor="center")
+        gfx.text(surf, "MODEL", (self._model_x(), label_y), 14, self.accent, bold=True, anchor="center")
+        gfx.text(surf, "YOUR BLOCKS", (self._blocks_x(), label_y), 14, T.MUTED, bold=True, anchor="center")
         ms = {2: 240, 3: 252, 4: 256}[size]
         mrect = pygame.Rect(0, 0, ms, ms)
-        mrect.center = (380, self._mid_y())
+        mrect.center = (self._model_x(), self._mid_y())
         frame = mrect.inflate(36, 36)
         gfx.glow(surf, frame.center, 260, self.accent, 0.12)
         gfx.panel(surf, frame, T.PANEL, T.BORDER, radius=16)
@@ -272,5 +280,5 @@ class BlockDesign(ItemSubtest):
         if self.state == "item":
             self.giveup_btn.draw(surf)
         if self.revealing and self.fb["points"] == 0:
-            gfx.text(surf, "The model is on the left — compare edge by edge.", (880, 474 if T.compact else 640), 16,
+            gfx.text(surf, "The model is on the left — compare edge by edge.", (self._blocks_x(), 474 if T.compact else 640), 16,
                      T.MUTED, anchor="center")

@@ -204,7 +204,7 @@ class App:
 
     @property
     def screen(self):
-        """The 1280x800 canvas every scene is laid out on (the centre of the stage)."""
+        """The 1422x800 canvas every scene is laid out on (the centre of the stage)."""
         return self.stage.canvas
 
     def _fit_page(self):
@@ -268,7 +268,7 @@ class App:
     def _check_large_text():
         # phones show the canvas at about half size: draw the small print larger there. Screens
         # opened from then on make room for it; the open one fits it in as best it can.
-        gfx.set_large_text(web.view_scale(T.W, T.FULL_H) < 0.75)
+        gfx.set_large_text(web.view_scale(T.FULL_W, T.FULL_H) < 0.75)
 
     def _check_layout(self):
         """Use the compact layout (see theme.py) on pages too small for the full one and about the shape

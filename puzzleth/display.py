@@ -1,4 +1,4 @@
-"""Window management. The game lays itself out on a fixed 1280x800 canvas (1280x600 in the compact
+"""Window management. The game lays itself out on a fixed 1422x800 canvas (1280x600 in the compact
 layout, see theme.py), centred on a "stage" that has the shape of the window (or browser page): the
 background fills the whole stage and the stage fills the whole window, so there are no bars on any
 screen. A real window has the GPU scale the stage to the window in both windowed and fullscreen modes;

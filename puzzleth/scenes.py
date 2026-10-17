@@ -260,7 +260,7 @@ def _spread(buttons, left, right, y, h, gap=10):
 class MenuScene(Scene):
     def __init__(self, app):
         super().__init__(app)
-        self.tree = SkillTree((T.W // 2, 310), layout="compact") if T.compact else SkillTree()
+        self.tree = SkillTree((T.W // 2, 315), layout="compact") if T.compact else SkillTree()
         self.hover = None
         self.begin = Button(
             (T.W - 410, 30, 240, 54),
@@ -949,17 +949,18 @@ class IntroScene(Scene):
             gfx.text(surf, cls.measures, (52, y0 + 112), 20, T.MUTED)
             py, ph = 290, 360
 
+        side_w = T.W - 50 - 780   # the column on the right takes the rest of the width
         if not self.large:
             how_h = ph * 5 // 9
             self._panel(surf, (50, py, 700, ph), "RULES OF THE REAL TEST", cls.rules, 17, T.TEXT, col, True)
-            self._panel(surf, (780, py, 450, how_h), "HOW TO PLAY HERE", cls.controls, 17, T.TEXT, col)
-            self._panel(surf, (780, py + how_h + 16, 450, ph - how_h - 16), "MODE", [self._mode()], 16, T.MUTED, col,
-                        top=30)
+            self._panel(surf, (780, py, side_w, how_h), "HOW TO PLAY HERE", cls.controls, 17, T.TEXT, col)
+            self._panel(surf, (780, py + how_h + 16, side_w, ph - how_h - 16), "MODE", [self._mode()], 16, T.MUTED,
+                        col, top=30)
         elif self.show_rules:   # large text: the rules get the whole width, behind a toggle
-            self._panel(surf, (50, py, 1180, ph), "RULES OF THE REAL TEST", cls.rules, 17, T.TEXT, col, True)
+            self._panel(surf, (50, py, T.W - 100, ph), "RULES OF THE REAL TEST", cls.rules, 17, T.TEXT, col, True)
         else:
             self._panel(surf, (50, py, 700, ph), "HOW TO PLAY HERE", cls.controls, 17, T.TEXT, col)
-            self._panel(surf, (780, py, 450, ph), "MODE", [self._mode()], 16, T.MUTED, col, top=30)
+            self._panel(surf, (780, py, side_w, ph), "MODE", [self._mode()], 16, T.MUTED, col, top=30)
         if self.rated:
             gfx.text(
                 surf,
@@ -1142,7 +1143,7 @@ class BatteryResultScene(Scene):
         super().__init__(app)
         sound.play("complete")
         # compact: a tree without names, so that it fits beside the panel
-        self.tree = SkillTree((460, 326), layout="narrow") if T.compact else SkillTree(center=(475, 460), sx=0.82)
+        self.tree = SkillTree((460, 326), layout="narrow") if T.compact else SkillTree(center=((T.W - 340) // 2, 460), sx=0.68)
         self.scaled = scaled
         self.raw = raw
         self.indexes = indexes

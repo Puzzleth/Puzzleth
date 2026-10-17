@@ -19,7 +19,7 @@ sys.path.insert(0, ROOT)
 import pygame  # noqa: E402
 
 pygame.init()
-pygame.display.set_mode((1280, 800))
+pygame.display.set_mode((1422, 800))
 
 from puzzleth import sound  # noqa: E402
 

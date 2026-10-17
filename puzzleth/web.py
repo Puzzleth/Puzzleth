@@ -79,7 +79,7 @@ def view_size():
         w = _window()
         return int(w.innerWidth), int(w.innerHeight)
     except Exception:
-        return 1280, 800
+        return 1422, 800
 
 
 def refit_canvas():
