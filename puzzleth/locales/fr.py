@@ -580,6 +580,7 @@ STRINGS = {
     "Move to another device": "Passer sur un autre appareil",
     "Tap again to leave": "Touchez à nouveau pour quitter",
     "Leave the leaderboard": "Quitter le classement",
+    "Privacy": "Confidentialité",
     "Joining…": "Inscription…",
     "Join as {name}": "Rejoindre en tant que {name}",
     "LEADERBOARD": "CLASSEMENT",

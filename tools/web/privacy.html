@@ -1,0 +1,90 @@
+<!doctype html>
+<!-- Puzzleth's privacy notice, published beside the game as privacy.html (tools/build_web.sh).
+     The game links to it from the leaderboard (PRIVACY_URL in puzzleth/scenes.py). -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Puzzleth · Privacy</title>
+<link rel="icon" href="favicon.png">
+<style>
+  body { margin: 0; background: #080b18; color: #dfe4f5; font: 17px/1.6 system-ui, sans-serif; }
+  main { max-width: 760px; margin: 0 auto; padding: 40px 24px 80px; }
+  h1 { font-size: 30px; margin: 0 0 4px; }
+  h2 { font-size: 20px; margin: 36px 0 8px; }
+  .muted { color: #8b93b3; }
+  a { color: #8fb4ff; }
+  table { border-collapse: collapse; width: 100%; font-size: 15px; }
+  th, td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid #262d4d; }
+  th { color: #8b93b3; font-weight: 600; }
+</style>
+</head>
+<body>
+<main>
+<h1>Privacy</h1>
+<p class="muted">Last updated 17 October 2026</p>
+
+<p>Puzzleth is a free puzzle game. You can play it without an account, and without sending anything
+about yourself anywhere. Only the online leaderboard, which you have to choose to join, sends data
+to a server. This page explains what is sent and what happens to it.</p>
+
+<h2>Who is responsible</h2>
+<p>Puzzleth is made and run by <strong>Luca Silviu Huci</strong>. For any question or request about
+your data, write to <strong>thealepou@icloud.com</strong>.</p>
+
+<h2>Playing the game</h2>
+<p>Your players, progress and settings are saved on your own device (in the browser's storage, or
+in a file on your computer for the desktop version). They are never sent to us. The game uses no
+analytics, no advertising and no tracking cookies.</p>
+<p>The web version is hosted on GitHub Pages, and loads part of its Python runtime from
+pygame-web.github.io, which GitHub also hosts. Like any website, GitHub receives your IP address and
+browser details when your browser loads these files. We don't get these logs. See
+<a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement">GitHub's privacy statement</a>.</p>
+
+<h2>The online leaderboard</h2>
+<p>When you press <em>Join</em> on the leaderboard screen, the game sends the following to our
+server. It is only used to run the leaderboard and let you move to another device.</p>
+<table>
+  <tr><th>What</th><th>Why</th><th>How long</th></tr>
+  <tr><td>Your player name, and a random four-character tag</td>
+      <td>To show you on the leaderboard</td><td>Until you leave</td></tr>
+  <tr><td>Your puzzle ratings, peaks and number of puzzles played</td>
+      <td>To rank you</td><td>Until you leave</td></tr>
+  <tr><td>A backup of your progress and settings</td>
+      <td>To restore them on another device</td><td>Until you leave</td></tr>
+  <tr><td>A hash of your login token and of your recovery code</td>
+      <td>To recognise you, without storing the token or code themselves</td><td>Until you leave</td></tr>
+  <tr><td>A keyed hash of your IP address, when you join or enter a wrong recovery code</td>
+      <td>To limit how many players can be created, and codes guessed, from one address</td>
+      <td>24 hours</td></tr>
+</table>
+<p>Your IP address itself is never stored. It is hashed with a secret key (HMAC-SHA-256), so the
+stored value can't be turned back into the address.</p>
+<p>The legal basis for the leaderboard data is that you asked to take part in the leaderboard
+(GDPR Article 6(1)(b)). The basis for the 24-hour address records is our legitimate interest in
+preventing abuse (Article 6(1)(f)).</p>
+<p>Your name, tag and ratings are shown publicly to other players on the leaderboard.</p>
+
+<h2>Who processes the data</h2>
+<p>The leaderboard runs on Cloudflare Workers and Cloudflare D1. Cloudflare processes the data on our
+behalf, and, as with any web request, sees your IP address when the game contacts the server. See
+<a href="https://www.cloudflare.com/privacypolicy/">Cloudflare's privacy policy</a>. We don't sell
+or share your data with anyone else.</p>
+
+<h2>Your rights</h2>
+<p>You can delete everything the leaderboard holds about you at any time: open the leaderboard and
+choose <em>Leave the leaderboard</em>. Removing your player in the game does the same.</p>
+<p>You also have the right to access, correct, export or delete your data, and to object to how it
+is used. Write to the address above. If you think we handle your data unlawfully, you can complain
+to your country's data protection authority.</p>
+
+<h2>Children</h2>
+<p>The leaderboard asks only for a short player name, which needn't be your real name. If you are
+under the age your country sets for agreeing to online services (between 13 and 16 in the EU),
+please ask a parent before joining.</p>
+
+<h2>Changes</h2>
+<p>If this notice changes, the new version will be published here with a new date.</p>
+</main>
+</body>
+</html>

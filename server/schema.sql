@@ -22,7 +22,7 @@ CREATE TABLE IF NOT EXISTS ratings (
 );
 CREATE INDEX IF NOT EXISTS ratings_board ON ratings (code, rating DESC);
 
--- Recent sign-ups (and wrong recovery codes) by hashed address, to limit how fast new players can be
+-- Recent sign-ups (and wrong recovery codes) by address, keyed with the IP_HASH_KEY secret (HMAC), to limit how fast new players can be
 -- made and codes guessed.
 CREATE TABLE IF NOT EXISTS signups (
   ip_hash TEXT NOT NULL,

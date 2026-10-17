@@ -30,6 +30,8 @@ done < <(find build/Puzzleth/puzzleth/sounds build/Puzzleth/puzzleth/music -type
 # - the music moves out of it to music/ beside the page (pygbag copies static/ there as it is),
 #   listed in streamed.txt, and each song is streamed only when it starts playing (puzzleth/sound.py)
 mkdir -p build/Puzzleth/static/music
+# the privacy notice is published beside the page, where the leaderboard links to it (PRIVACY_URL)
+cp tools/web/privacy.html tools/web/favicon.png build/Puzzleth/static/
 : > build/Puzzleth/puzzleth/music/streamed.txt
 while IFS= read -r -d '' f; do
   mv "$f" build/Puzzleth/static/music/

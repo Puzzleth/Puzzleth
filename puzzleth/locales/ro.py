@@ -562,6 +562,7 @@ STRINGS = {
     "Move to another device": "Mută pe alt dispozitiv",
     "Tap again to leave": "Atinge din nou ca să ieși",
     "Leave the leaderboard": "Ieși din clasament",
+    "Privacy": "Confidențialitate",
     "Joining…": "Te alături…",
     "Join as {name}": "Alătură-te ca {name}",
     "LEADERBOARD": "CLASAMENT",

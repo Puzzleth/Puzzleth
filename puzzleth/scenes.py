@@ -16,6 +16,8 @@ from .widgets import Button
 
 # Your donation page, e.g. "https://ko-fi.com/yourname". The menu shows a Donate button once it's set.
 DONATE_URL = "https://ko-fi.com/n0va"
+# What the online leaderboard sends and keeps, published beside the web version (tools/web/privacy.html).
+PRIVACY_URL = "https://puzzleth.github.io/Puzzleth/privacy.html"
 
 
 def _tooltip(surf, pos, title, lines, color):
@@ -1597,6 +1599,8 @@ class LeaderboardScene(Scene):
                 b.rect.update(b.rect.x, self.side.bottom - 70 - i * 58, bw, 48)
         back = (T.W - 260, 14, 220, 52) if T.compact else (T.W - 260, 30, 220, 52)
         self.back_btn = Button(back, "Back", app.to_menu, T.ACCENT, hotkeys=(pygame.K_ESCAPE,))
+        self.privacy_btn = Button((back[0] - 160, back[1], 148, back[3]), "Privacy",
+                                  lambda: web.open_url(PRIVACY_URL), T.ACCENT, size=16)
         self._sync_buttons()
         self._show(self.code)
 
@@ -1647,7 +1651,7 @@ class LeaderboardScene(Scene):
         """Join, or play and leave, depending on whether the player has joined."""
         on = self.app.online
         acct = on.account()
-        self.buttons = self.tabs + [self.back_btn]
+        self.buttons = self.tabs + [self.privacy_btn, self.back_btn]
         if acct:
             self.buttons += [self.code_btn, self.play_btn, self.leave_btn]
             self.leave_btn.label = "Tap again to leave" if self.armed else "Leave the leaderboard"
