@@ -72,9 +72,26 @@ const newCode = () => randomString(CODE_LEN, TAG_CHARS).replace(/(.{4})(?=.)/g, 
 const plainCode = (code) => String(code).toUpperCase().replace(/[^0-9A-Z]/g, "");
 const codeHash = (code) => sha256("puzzleth-code:" + plainCode(code));
 
+/**
+ * An address keyed with the IP_HASH_KEY secret (HMAC-SHA-256). A plain hash of an address could be
+ * undone by hashing every address there is; without the key, which only Cloudflare holds, it can't.
+ */
+const hmacKeys = new Map();
+async function ipHashOf(request, env, what) {
+  const secret = env.IP_HASH_KEY;
+  if (!secret) throw new Error("IP_HASH_KEY is not set: run `npx wrangler secret put IP_HASH_KEY`");
+  if (!hmacKeys.has(secret)) {
+    hmacKeys.set(secret, crypto.subtle.importKey(
+      "raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]));
+  }
+  const text = `puzzleth${what}:` + (request.headers.get("CF-Connecting-IP") || "");
+  const mac = await crypto.subtle.sign("HMAC", await hmacKeys.get(secret), new TextEncoder().encode(text));
+  return Array.from(new Uint8Array(mac), (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
 /** How many times this address did ``what`` in the last day (signups doubles as the log of both). */
 async function recently(request, env, what, now) {
-  const ipHash = await sha256(`puzzleth${what}:` + (request.headers.get("CF-Connecting-IP") || ""));
+  const ipHash = await ipHashOf(request, env, what);
   await env.DB.prepare("DELETE FROM signups WHERE ts < ?").bind(now - 86400).run();
   const row = await env.DB.prepare("SELECT COUNT(*) AS n FROM signups WHERE ip_hash = ?").bind(ipHash).first();
   return { n: row.n, log: env.DB.prepare("INSERT INTO signups (ip_hash, ts) VALUES (?, ?)").bind(ipHash, now) };

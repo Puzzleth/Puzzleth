@@ -10,7 +10,7 @@ import { MAX_STEP, RANKED_AFTER, RESTORE_FAILS_PER_DAY, SIGNUPS_PER_DAY, checkRa
 let env;
 let ip;
 beforeEach(() => {
-  env = { DB: new FakeD1() };
+  env = { DB: new FakeD1(), IP_HASH_KEY: "test-key" };
   ip = 0;
 });
 
@@ -52,6 +52,16 @@ test("sign-ups are limited per address", async () => {
     assert.equal((await call("POST", "/players", { body: { name: "BOT" }, from: "1.2.3.4" })).status, 201);
   assert.equal((await call("POST", "/players", { body: { name: "BOT" }, from: "1.2.3.4" })).status, 429);
   assert.equal((await call("POST", "/players", { body: { name: "ANA" }, from: "5.6.7.8" })).status, 201);
+});
+
+test("addresses are stored only keyed with IP_HASH_KEY", async () => {
+  await call("POST", "/players", { body: { name: "ANA" }, from: "1.2.3.4" });
+  const { createHash } = await import("node:crypto");
+  const { ip_hash } = env.DB.db.prepare("SELECT ip_hash FROM signups").get();
+  assert.match(ip_hash, /^[0-9a-f]{64}$/);
+  assert.notEqual(ip_hash, createHash("sha256").update("puzzleth:1.2.3.4").digest("hex"));
+  env.IP_HASH_KEY = undefined;
+  assert.equal((await call("POST", "/players", { body: { name: "ANA" } })).status, 500);
 });
 
 test("ratings need a known token and a rated subtest", async () => {

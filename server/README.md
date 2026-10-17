@@ -14,6 +14,7 @@ cd server
 npx wrangler login
 npx wrangler d1 create puzzleth-leaderboard        # prints a database_id: put it in wrangler.toml
 npx wrangler d1 execute puzzleth-leaderboard --remote --file=schema.sql
+openssl rand -base64 32 | npx wrangler secret put IP_HASH_KEY   # the key addresses are hashed with
 npx wrangler deploy                                # prints the Worker's address
 ```
 
@@ -29,17 +30,28 @@ npx wrangler d1 execute puzzleth-leaderboard --remote --file=schema.sql
 npx wrangler deploy
 ```
 
-No secrets are involved. The repository holds the server's code and address, but no keys or
-passwords. Each player's token is created by the server when they join, kept only on their
-device, and stored on the server only as a hash.
+The one secret is `IP_HASH_KEY`, which Cloudflare keeps (set with `wrangler secret put`, as
+above). The repository holds the server's code and address, but no keys or passwords. Each
+player's token is created by the server when they join, kept only on their device, and stored on
+the server only as a hash.
 
 ## What it stores and checks
+
+Players can read this in `tools/web/privacy.html`, the privacy notice the web build publishes beside
+the game and the leaderboard's **Privacy** button opens. Keep it in step when what's stored changes.
 
 Only players who choose **Join** in the game are sent anywhere. For each of them the server keeps
 their name, a four-character tag (so two players called ANA can be told apart), and for each
 subtest their puzzle rating, peak and number of puzzles played. It also keeps a backup of their
 progress and settings as the game sends it, and the hash of their recovery code, which moves them
 to another device. **Leave the leaderboard**, or removing the player in the game, deletes all of it.
+
+To limit sign-ups and recovery-code guesses, the server keeps a record of each one for a day,
+under the address it came from. Addresses are never stored as they are: each is hashed with
+HMAC-SHA-256 under `IP_HASH_KEY`. A plain hash of an address could be reversed by hashing all four
+billion of them; without the key, which exists only as a Cloudflare secret, it can't. Records
+older than a day are deleted. Changing the key (`wrangler secret put IP_HASH_KEY` again) makes all
+of them unlinkable at once.
 
 Restoring with the recovery code gives the new device a new token, and the old token stops
 working. Wrong codes are limited to 20 a day per address. Codes are 12 characters, about 60

@@ -8,7 +8,10 @@ import worker from "../src/index.js";
 import { FakeD1 } from "./fake-d1.js";
 
 const port = Number(process.env.PORT || 8787);
-const env = { DB: new FakeD1(new URL("./leaderboard.sqlite", import.meta.url).pathname) };
+const env = {
+  DB: new FakeD1(new URL("./leaderboard.sqlite", import.meta.url).pathname),
+  IP_HASH_KEY: process.env.IP_HASH_KEY || "local-only-key",
+};
 
 createServer(async (req, res) => {
   const chunks = [];
