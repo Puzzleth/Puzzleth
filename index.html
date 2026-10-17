@@ -1,0 +1,73 @@
+---
+---
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Puzzleth</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: clamp(2rem, 8vh, 4.5rem);
+      overflow: hidden;
+      font-family: "Helvetica Neue", Arial, sans-serif;
+      background:
+        radial-gradient(ellipse at 20% 20%, rgba(80, 120, 255, 0.35), transparent 50%),
+        radial-gradient(ellipse at 80% 70%, rgba(130, 70, 255, 0.3), transparent 55%),
+        radial-gradient(ellipse at 50% 100%, rgba(0, 180, 255, 0.25), transparent 60%),
+        linear-gradient(160deg, #02041a, #0a1445 50%, #050824);
+    }
+    .stars, .stars::before, .stars::after {
+      content: "";
+      position: absolute;
+      top: 0; left: 0;
+      width: 2px; height: 2px;
+      background: transparent;
+      border-radius: 50%;
+      box-shadow:
+        10vw 15vh #fff, 25vw 70vh #cfe0ff, 40vw 30vh #fff, 55vw 85vh #aac4ff,
+        70vw 20vh #fff, 85vw 60vh #cfe0ff, 92vw 10vh #fff, 15vw 90vh #fff,
+        33vw 8vh #aac4ff, 62vw 50vh #fff, 78vw 92vh #cfe0ff, 5vw 55vh #fff,
+        48vw 60vh #fff, 95vw 35vh #aac4ff, 20vw 40vh #fff, 88vw 82vh #fff;
+      animation: twinkle 4s ease-in-out infinite alternate;
+    }
+    .stars::before { transform: translate(3vw, 4vh); animation-delay: 1s; }
+    .stars::after { transform: translate(-4vw, 7vh); animation-delay: 2s; }
+    @keyframes twinkle { from { opacity: 0.3; } to { opacity: 1; } }
+    .link {
+      position: relative;
+      z-index: 1;
+      color: #fff;
+      text-decoration: none;
+      font-size: clamp(1.8rem, 6vw, 4.5rem);
+      font-weight: 700;
+      letter-spacing: 0.3em;
+      padding: 1.2rem 2.5rem;
+      border: 1px solid rgba(140, 170, 255, 0.4);
+      border-radius: 1rem;
+      background: rgba(30, 50, 140, 0.2);
+      backdrop-filter: blur(6px);
+      text-shadow: 0 0 10px #6a8cff, 0 0 30px #4a5cff, 0 0 60px #7a3cff;
+      box-shadow: 0 0 40px rgba(80, 110, 255, 0.35);
+      transition: transform 0.3s, box-shadow 0.3s;
+      text-align: center;
+    }
+    .link:hover {
+      transform: scale(1.05);
+      box-shadow: 0 0 70px rgba(110, 140, 255, 0.6);
+    }
+  </style>
+</head>
+<body>
+  <div class="stars"></div>
+  <a class="link" href="{{ '/blog/' | relative_url }}">DEVLOGS</a>
+  <a class="link" href="{{ '/privacy.html' | relative_url }}">PRIVACY</a>
+</body>
+</html>

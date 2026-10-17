@@ -1,0 +1,125 @@
+---
+---
+
+@import "minima";
+
+/* Puzzleth — starry night theme (matches index.html) */
+
+:root {
+  color-scheme: dark;
+  --glow: #6a8cff;
+  --border: rgba(140, 170, 255, 0.4);
+  --panel: rgba(30, 50, 140, 0.2);
+  --text-main: #e8eeff;
+  --text-muted: #aab8e6;
+}
+
+html, body { min-height: 100%; }
+
+body {
+  font-family: "Helvetica Neue", Arial, sans-serif;
+  color: var(--text-main);
+  background:
+    radial-gradient(ellipse at 20% 20%, rgba(80, 120, 255, 0.35), transparent 50%),
+    radial-gradient(ellipse at 80% 70%, rgba(130, 70, 255, 0.3), transparent 55%),
+    radial-gradient(ellipse at 50% 100%, rgba(0, 180, 255, 0.25), transparent 60%),
+    linear-gradient(160deg, #02041a, #0a1445 50%, #050824);
+  background-attachment: fixed;
+}
+
+/* Header */
+.site-header {
+  background: var(--panel);
+  backdrop-filter: blur(6px);
+  border-top: none;
+  border-bottom: 1px solid var(--border);
+}
+
+.site-title,
+.site-title:visited,
+.site-nav .page-link {
+  color: #fff;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  text-shadow: 0 0 10px var(--glow), 0 0 30px #4a5cff;
+}
+
+.site-title:hover,
+.site-nav .page-link:hover {
+  text-decoration: none;
+  text-shadow: 0 0 10px var(--glow), 0 0 30px #7a3cff, 0 0 60px #7a3cff;
+}
+
+.site-nav {
+  background: transparent;
+  border-color: var(--border);
+}
+
+/* Content */
+.page-content { background: transparent; }
+
+.page-content,
+.post-content { color: var(--text-main); }
+
+.post-title,
+.page-heading,
+.post-content h1,
+.post-content h2,
+.post-content h3,
+.post-content h4 {
+  color: #fff;
+  text-shadow: 0 0 10px var(--glow), 0 0 30px #4a5cff;
+}
+
+.post-meta,
+.footer-col-wrapper { color: var(--text-muted); }
+
+a,
+.post-link { color: #9db4ff; }
+
+a:visited { color: #b9a4ff; }
+
+a:hover,
+.post-link:hover { color: #fff; }
+
+/* Post list entries as glowing panels */
+.post-list > li {
+  padding: 1rem 1.5rem;
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  background: var(--panel);
+  backdrop-filter: blur(6px);
+  box-shadow: 0 0 40px rgba(80, 110, 255, 0.25);
+  transition: transform 0.3s, box-shadow 0.3s;
+}
+
+.post-list > li:hover {
+  transform: scale(1.01);
+  box-shadow: 0 0 70px rgba(110, 140, 255, 0.5);
+}
+
+/* Code */
+pre,
+code {
+  background: rgba(2, 4, 26, 0.7);
+  border-color: var(--border);
+  color: #cfe0ff;
+}
+
+blockquote {
+  color: var(--text-muted);
+  border-left-color: var(--border);
+}
+
+/* Footer */
+.site-footer {
+  background: var(--panel);
+  border-top: 1px solid var(--border);
+  color: var(--text-muted);
+}
+
+::selection {
+  background: #6a8cff;
+  color: #02041a;
+}
