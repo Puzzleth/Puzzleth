@@ -317,6 +317,47 @@ function puzzleth_start_music() {
 for (const ev of ["pointerdown", "touchend", "keydown"])
     window.addEventListener(ev, puzzleth_start_music, true)
 
+// Sound effects and spoken digits play through SDL's Web Audio context, not an <audio> element.
+// Phones start it suspended and only let it run once resumed from inside a gesture that counts
+// (touchend or pointerup; SDL itself waits for touchstart, which phones ignore). So every context
+// the page makes is remembered and resumed on every tap or key press until it runs; a silent
+// sound started in the same gesture is what older iPhones need as well. iPhones also mute Web Audio
+// with the ringer switch unless the page asks to be treated like a media player.
+const puzzleth_audio_contexts = []
+for (const name of ["AudioContext", "webkitAudioContext"]) {
+    const Base = window[name]
+    if (!Base) continue
+    window[name] = new Proxy(Base, {
+        construct(target, args, newTarget) {
+            const ctx = Reflect.construct(target, args, newTarget)
+            puzzleth_audio_contexts.push(ctx)
+            return ctx
+        }
+    })
+}
+try {
+    if (navigator.audioSession) navigator.audioSession.type = "playback"
+} catch (e) {}
+
+function puzzleth_unlock_audio() {
+    for (const ctx of puzzleth_audio_contexts) {
+        if (ctx.state === "running" || ctx.state === "closed") continue
+        try {
+            const src = ctx.createBufferSource()
+            src.buffer = ctx.createBuffer(1, 1, ctx.sampleRate)
+            src.connect(ctx.destination)
+            src.start(0)
+        } catch (e) {}
+        if (ctx.resume) ctx.resume().catch(() => {})
+    }
+}
+for (const ev of ["pointerdown", "pointerup", "touchstart", "touchend", "mousedown", "keydown"])
+    window.addEventListener(ev, puzzleth_unlock_audio, true)
+document.addEventListener("visibilitychange", () => {
+    // phones suspend audio when the tab is hidden; the next tap brings it back
+    if (!document.hidden) puzzleth_unlock_audio()
+})
+
 // New tabs also need a gesture, and the game only sees a tap a moment after it happens. That is
 // usually soon enough; when the browser (often Safari) refuses, the link opens on the tap's release.
 var puzzleth_pending_url = null
