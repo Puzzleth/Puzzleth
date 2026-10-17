@@ -4,6 +4,7 @@ url: "https://puzzleth.github.io"
 baseurl: "/Puzzleth"
 timezone: Europe/Bucharest
 permalink: /blog/:year/:month/:day/:title/
+future: true
 header_pages:
   - blog/blog.md
   - privacy.html
