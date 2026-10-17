@@ -45,7 +45,8 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * still needs one).
  *
  * Updates come from the Nightly branch: .github/workflows/nightly.yml publishes each of its builds to
- * the nightly-build branch. When the page asks for version.txt (on starting, and whenever it comes
+ * the private Puzzleth-builds repository, which the app reads with the read-only token build_apk.sh
+ * packs in as assets/nightly-token.txt (without one it never looks). When the page asks for version.txt (on starting, and whenever it comes
  * back into view, see puzzleth_check_version in tools/web/puzzleth.tmpl), the app looks there for a
  * newer build, downloads it in the background, and from then on serves it instead of its own copy;
  * the page then loads it straight away, or offers it on the menu if a game is under way. Installing
@@ -54,7 +55,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class MainActivity extends Activity {
     private static final String APP_HOST = "appassets.androidplatform.net";
     private static final String CDN_HOST = "pygame-web.github.io";
-    private static final String NIGHTLY = "https://raw.githubusercontent.com/Puzzleth/Puzzleth/nightly-build/";
+    private static final String NIGHTLY = "https://raw.githubusercontent.com/Puzzleth/Puzzleth-builds/nightly/";
     private static final Map<String, String> TYPES = new HashMap<>();
 
     static {
@@ -78,6 +79,7 @@ public class MainActivity extends Activity {
 
     private WebView web;
     private final AtomicBoolean checking = new AtomicBoolean();
+    private String token;   // for NIGHTLY, or "" when this APK has none
     private volatile long lastCheck;
 
     @Override
@@ -196,7 +198,7 @@ public class MainActivity extends Activity {
                     File nightly = nightly();
                     if (nightly != null) {
                         try {   // (a song or picture not downloaded yet is fetched from the same build)
-                            return respond(path, new FileInputStream(cached(NIGHTLY + path.substring(1), new File(nightly, path))));
+                            return respond(path, new FileInputStream(cached(NIGHTLY + path.substring(1), new File(nightly, path), token())));
                         } catch (IOException e) {
                             // offline: the app's own copy, if it has one
                         }
@@ -204,7 +206,7 @@ public class MainActivity extends Activity {
                     return respond(path, getAssets().open("web" + path));
                 }
                 if (CDN_HOST.equals(uri.getHost())) {
-                    return respond(path, new FileInputStream(cached(uri.toString(), new File(getFilesDir(), "cdn" + path))));
+                    return respond(path, new FileInputStream(cached(uri.toString(), new File(getFilesDir(), "cdn" + path), null)));
                 }
             } catch (IOException e) {
                 if (APP_HOST.equals(uri.getHost())) {
@@ -249,8 +251,20 @@ public class MainActivity extends Activity {
         }
     }
 
+    private String token() {
+        if (token == null) {
+            try (InputStream in = getAssets().open("nightly-token.txt")) {
+                token = new String(read(in), StandardCharsets.UTF_8).trim();
+            } catch (IOException e) {
+                token = "";
+            }
+        }
+        return token;
+    }
+
     /** Look for a newer Nightly build in the background (at most once a minute). */
     private void checkNightly() {
+        if (token().isEmpty()) return;
         long now = System.currentTimeMillis();
         if (now - lastCheck < 60000 || !checking.compareAndSet(false, true)) return;
         lastCheck = now;
@@ -266,7 +280,7 @@ public class MainActivity extends Activity {
     }
 
     private void fetchNightly() throws IOException {
-        String latest = new String(download(NIGHTLY + "version.txt?t=" + System.currentTimeMillis()),
+        String latest = new String(download(NIGHTLY + "version.txt?t=" + System.currentTimeMillis(), token()),
             StandardCharsets.UTF_8).trim();
         if (!latest.matches("[0-9a-f]{6,64}") || latest.equals(buildId())) return;
         File root = new File(getFilesDir(), "nightly");
@@ -274,11 +288,11 @@ public class MainActivity extends Activity {
         deleteTree(part);
         if (!part.mkdirs()) throw new IOException("mkdirs");
         String game = "puzzleth-" + latest + ".apk";
-        byte[] page = download(NIGHTLY + "index.html?t=" + System.currentTimeMillis());
+        byte[] page = download(NIGHTLY + "index.html?t=" + System.currentTimeMillis(), token());
         if (!new String(page, StandardCharsets.UTF_8).contains(game)) {
             throw new IOException("index.html isn't build " + latest + " yet");   // a cache behind; next time
         }
-        save(download(NIGHTLY + game), new File(part, game));
+        save(download(NIGHTLY + game, token()), new File(part, game));
         save(page, new File(part, "index.html"));
         File dir = new File(root, latest);
         deleteTree(dir);
@@ -296,14 +310,15 @@ public class MainActivity extends Activity {
     // ---------------------------------------------------------------- files
 
     /** A copy of ``url`` kept in ``file``, downloaded the first time it is asked for. */
-    private static File cached(String url, File file) throws IOException {
+    private static File cached(String url, File file, String token) throws IOException {
         if (file.isFile()) return file;
-        save(download(url), file);
+        save(download(url, token), file);
         return file;
     }
 
-    private static byte[] download(String url) throws IOException {
+    private static byte[] download(String url, String token) throws IOException {
         HttpURLConnection c = (HttpURLConnection) new URL(url).openConnection();
+        if (token != null && !token.isEmpty()) c.setRequestProperty("Authorization", "token " + token);
         c.setConnectTimeout(15000);
         c.setReadTimeout(30000);
         try {
