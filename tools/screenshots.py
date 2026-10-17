@@ -18,7 +18,7 @@ sys.path.insert(0, ROOT)
 import pygame  # noqa: E402
 
 pygame.init()
-screen = pygame.display.set_mode((1280, 800))
+screen = pygame.display.set_mode((1422, 800))
 
 from puzzleth import scenes, scoring  # noqa: E402
 from puzzleth.app import App  # noqa: E402

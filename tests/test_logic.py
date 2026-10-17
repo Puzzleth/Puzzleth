@@ -20,7 +20,7 @@ sys.path.insert(0, ROOT)
 import pygame  # noqa: E402
 
 pygame.init()
-pygame.display.set_mode((1280, 800))
+pygame.display.set_mode((1422, 800))   # the full canvas (see theme.py)
 
 from puzzleth import challenge, glyphs, i18n, scoring, version_label  # noqa: E402
 from puzzleth.storage import Profile  # noqa: E402
@@ -187,7 +187,7 @@ class Localization(unittest.TestCase):
             app.online = type("Offline", (), {"account": lambda self: None, "rank": lambda self, c: None,
                                               "joining": None, "error": None})()
             i18n.set_language(language)
-            surf = pygame.Surface((1280, 800))
+            surf = pygame.Surface((1422, 800))
             for scene in (scenes.LanguageScene(app), scenes.DisclaimerScene(app), scenes.SettingsScene(app),
                           scenes.LearnScene(app), scenes.IntroScene(app, ORDER[0]), scenes.PauseOverlay(app),
                           scenes.SubtestResultScene(app, ORDER[2], 20, 11, 9, {"forward": 8, "backward": 7,
@@ -1248,18 +1248,19 @@ class LargeTextTests(unittest.TestCase):
 class StageTests(unittest.TestCase):
     def test_stage_fills_any_screen(self):
         from puzzleth.display import Stage, stage_size
-        self.assertEqual(stage_size(1280, 800), (1280, 800))
-        for w, h in [(844, 390), (1024, 768), (390, 844), (2560, 1080), (1, 1)]:
+        self.assertEqual(stage_size(1422, 800), (1422, 800))
+        self.assertEqual(stage_size(1920, 1080), (1422, 800))       # 16:9 screens need no sides at all
+        for w, h in [(844, 390), (1024, 768), (1280, 800), (390, 844), (2560, 1080), (1, 1)]:
             sw, sh = stage_size(w, h)
-            self.assertGreaterEqual(sw, 1280)
+            self.assertGreaterEqual(sw, 1422)
             self.assertGreaterEqual(sh, 800)
-            self.assertTrue(sw == 1280 or sh == 800)                # as small as it can be
+            self.assertTrue(sw == 1422 or sh == 800)                # as small as it can be
             self.assertAlmostEqual(sw / sh, w / h, delta=0.01)    # with the screen's shape
-        stage = Stage(pygame.Surface((1731, 800)))
-        self.assertEqual(stage.canvas.get_size(), (1280, 800))
+        stage = Stage(pygame.Surface((1872, 800)))
+        self.assertEqual(stage.canvas.get_size(), (1422, 800))
         self.assertEqual(stage.to_canvas((225, 10)), (0, 10))
-        e = stage.map_event(pygame.event.Event(pygame.MOUSEBUTTONDOWN, pos=(865, 400), button=1))
-        self.assertEqual(e.pos, (640, 400))
+        e = stage.map_event(pygame.event.Event(pygame.MOUSEBUTTONDOWN, pos=(936, 400), button=1))
+        self.assertEqual(e.pos, (711, 400))
 
 
 class CompactLayoutTests(unittest.TestCase):
@@ -1309,7 +1310,7 @@ class CompactLayoutTests(unittest.TestCase):
             with mock.patch.object(web, "view_size", return_value=size), mock.patch.object(app, "_fit_page"):
                 app._check_layout()
             self.assertEqual(theme.compact, compact, size)
-            self.assertEqual(theme.H, 600 if compact else 800)
+            self.assertEqual((theme.W, theme.H), (1280, 600) if compact else (1422, 800))
         self.assertIsInstance(app.scene, MenuScene)   # rebuilt for the new layout
 
     def test_layout_waits_for_a_subtest_to_end(self):
@@ -1354,6 +1355,29 @@ class CompactLayoutTests(unittest.TestCase):
             node.center = (x, y)
             for b in menu.buttons:
                 self.assertFalse(node.colliderect(b.rect), (code, b.label))
+
+    def test_skill_tree_names_are_readable(self):
+        """On a phone the menu's tree spreads to the edges with larger names (each kept clear of the
+        other nodes and on the canvas, in every language)."""
+        from puzzleth import theme
+        from puzzleth.skilltree import SkillTree
+        tree = SkillTree((theme.W // 2, 315), layout="compact")
+        nodes = [(p, tree.sub_ring) for p in tree.sub_pos.values()]
+        nodes += [(p, tree.idx_ring) for p in tree.index_pos.values()] + [(tree.center, tree.fs_ring + 14)]
+        try:
+            for language in ("en", "ro", "fr"):
+                i18n.set_language(language)
+                for code in tree.sub_pos:
+                    r = tree.name_rect(code)
+                    self.assertTrue(self.canvas.contains(r), (language, code, r))
+                    px = theme.text_px(tree._name(code)[1])   # 20 before
+                    self.assertGreaterEqual(px, 24 if language == "en" else 18, (language, code))
+                    for (x, y), ring in nodes:
+                        node = pygame.Rect(0, 0, 2 * ring, 2 * ring)
+                        node.center = (x, y)
+                        self.assertFalse(r.colliderect(node), (language, code, (x, y)))
+        finally:
+            i18n.set_language("en")
 
     def test_learn_pages_fit(self):
         from puzzleth.app import App

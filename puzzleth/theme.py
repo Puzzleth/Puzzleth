@@ -3,21 +3,23 @@ import os
 
 import pygame
 
-W, H = 1280, 800   # the canvas every scene is laid out on; H is COMPACT_H in the compact layout
-FULL_H = 800
-COMPACT_H = 600
+# The canvas every scene is laid out on: 1422x800, the 16:9 shape of most screens, so that the skill
+# tree can spread across a widescreen display; W x H is COMPACT_W x COMPACT_H in the compact layout.
+FULL_W, FULL_H = 1422, 800
+COMPACT_W, COMPACT_H = 1280, 600
+W, H = FULL_W, FULL_H
 FPS = 60
 
-# Phones in landscape are about twice as wide as tall, so a 1280x800 canvas only fills their height and
+# Phones in landscape are about twice as wide as tall, so the full canvas only fills their height and
 # leaves the sides to the background. The compact layout is a shorter 1280x600 canvas, about the shape
-# of the phone, which the page can show a third larger; scenes arrange themselves to fit it.
+# of the phone, which the page can show larger; scenes arrange themselves to fit it.
 compact = False
 
 
 def set_compact(on):
-    global compact, H
+    global compact, W, H
     compact = on
-    H = COMPACT_H if on else FULL_H
+    W, H = (COMPACT_W, COMPACT_H) if on else (FULL_W, FULL_H)
 
 BG = (8, 11, 24)
 BG2 = (22, 28, 58)
@@ -55,7 +57,7 @@ _FILES = {(False, False): "Inter-Regular.ttf", (True, False): "Inter-Bold.ttf",
           (False, True): "JetBrainsMono-Regular.ttf", (True, True): "JetBrainsMono-Bold.ttf"}
 _fonts = {}
 
-# On a phone the 1280x800 canvas is shown at about half size, which makes the small print unreadable.
+# On a phone the full canvas is shown at about half size, which makes the small print unreadable.
 # Large text draws small sizes bigger there (14 -> 20, 20 -> 28) and leaves headings (40+) alone; layouts
 # that measure text through font() adapt by themselves.
 large_text = False
