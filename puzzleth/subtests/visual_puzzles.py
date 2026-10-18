@@ -1,4 +1,5 @@
 """Visual Puzzles: pick the three pieces that make the puzzle."""
+import time
 from itertools import combinations
 
 import pygame
@@ -7,6 +8,7 @@ from ..display import mouse_pos
 from .. import gfx, i18n, sound
 from .. import theme as T
 from ..widgets import Button
+from .. import web
 from .base import ItemSubtest
 
 KEYS = {getattr(pygame, f"K_{i}"): i - 1 for i in range(1, 7)}
@@ -171,7 +173,11 @@ class VisualPuzzles(ItemSubtest):
 
     def make_item(self, n):
         r = self.rng
+        start = time.perf_counter()
         for _ in range(500):
+            # On the web build, avoid long stalls by capping generation time per item
+            if web.IS_WEB and (time.perf_counter() - start) > 0.04:
+                break
             if n <= 8:
                 w, h = r.choice([(2, 3), (3, 2), (3, 3), (2, 4), (4, 2), (3, 4), (4, 3)])
                 target = frozenset((x, y) for x in range(w) for y in range(h))
@@ -209,7 +215,32 @@ class VisualPuzzles(ItemSubtest):
                 pieces = [r.choice(rotations(p)) for p in pieces]
             correct = set(solutions[0])
             return {"target": target, "parts": parts, "pieces": pieces, "correct": correct, "selected": []}
-        raise RuntimeError("could not generate a visual puzzle")
+        # Fallback: on very slow devices or unlucky RNG, step down the difficulty instead of crashing
+        fallback = 26 if n > 26 else max(8, n - 1)
+        if fallback != n:
+            return self.make_item(fallback)
+        # Absolute last resort: simplest guaranteed shape
+        w, h = 3, 3
+        target = frozenset((x, y) for x in range(w) for y in range(h))
+        parts = partition(r, target) or [frozenset({(0, 0), (1, 0), (0, 1)}),
+                                         frozenset({(2, 2), (2, 1), (1, 2)}),
+                                         frozenset({(1, 1), (2, 0), (0, 2), (1, 2), (2, 1)})]
+        true = [normalize(p) for p in parts]
+        distract = []
+        canon = {canonical(p) for p in true}
+        while len(distract) < 3:
+            d = grow_shape(r, r.randint(2, max(len(p) for p in true)), 4, 4)
+            if d and canonical(d) not in canon:
+                canon.add(canonical(d))
+                distract.append(d)
+        options = [(p, True) for p in true] + [(d, False) for d in distract]
+        r.shuffle(options)
+        pieces = [p for p, _ in options]
+        solutions = [c for c in combinations(range(6), 3) if tiles(target, [pieces[i] for i in c])]
+        correct = set(solutions[0]) if solutions else {0, 1, 2}
+        if n >= 5:
+            pieces = [r.choice(rotations(p)) for p in pieces]
+        return {"target": target, "parts": parts, "pieces": pieces, "correct": correct, "selected": []}
 
     def on_item_start(self):
         it = self.item

@@ -1347,7 +1347,8 @@ class PauseOverlay:
             b.update(dt)
 
     def draw(self, surf):
-        gfx.overlay(surf, T.BG, 200)
+        # Opaque cover: the puzzle underneath must not remain readable while paused
+        gfx.overlay(surf, T.BG, 255)
         gfx.text(
             surf, "Paused", (T.W // 2, self.top), 44, T.TEXT, bold=True, anchor="center"
         )
