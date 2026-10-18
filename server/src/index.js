@@ -15,8 +15,8 @@
 // ratings the game's rules could have produced (see checkRating in rules.js).
 
 import {
-  CODE_LEN, CODES, MAX_BACKUP, MAX_RATING, NAME, RANKED_AFTER, RESTORE_FAILS_PER_DAY, SIGNUPS_PER_DAY, TAG_CHARS,
-  checkRating,
+  CODE_LEN, CODES, MAX_BACKUP, MAX_RATING, NAME, RANKED_AFTER, RESTORE_FAILS_PER_DAY, SECONDS_PER_PUZZLE,
+  SIGNUPS_PER_DAY, START_RATING, TAG_CHARS, checkRating,
 } from "./rules.js";
 
 const CORS = {
@@ -64,7 +64,10 @@ async function readJson(request, max = 1000) {
 async function player(request, db) {
   const m = /^Bearer (\S+)$/.exec(request.headers.get("Authorization") || "");
   if (!m) return null;
-  return db.prepare("SELECT id, name, tag FROM players WHERE token_hash = ?").bind(await sha256(m[1])).first();
+  return db
+    .prepare("SELECT id, name, tag, created FROM players WHERE token_hash = ?")
+    .bind(await sha256(m[1]))
+    .first();
 }
 
 /** A recovery code as players see it, XXXX-XXXX-XXXX, and as it's hashed: without dashes or spaces. */
@@ -140,14 +143,26 @@ async function postRating(request, env, code) {
     .prepare("SELECT rating, played, peak, updated FROM ratings WHERE player_id = ? AND code = ?")
     .bind(me.id, code)
     .first();
-  const why = checkRating(old, rating, played, now);
+  // Apply the time-based cap to first posts too, using when the player joined.
+  const effectiveOld = old || {
+    rating: START_RATING,
+    played: 0,
+    // Give slack for the set being played at join time, same as later posts
+    updated: me.created - RANKED_AFTER * SECONDS_PER_PUZZLE,
+  };
+  const why = checkRating(effectiveOld, rating, played, now);
   if (why) return json({ error: why, rating: old ? old.rating : null, played: old ? old.played : 0 }, 409);
   await env.DB
     .prepare(
-      "INSERT INTO ratings (player_id, code, rating, played, peak, updated) VALUES (?1, ?2, ?3, ?4, ?3, ?5) " +
-        "ON CONFLICT (player_id, code) DO UPDATE SET rating = ?3, played = ?4, peak = MAX(peak, ?3), updated = ?5",
+      "INSERT INTO ratings (player_id, code, rating, played, peak, updated) VALUES (?, ?, ?, ?, ?, ?) " +
+        "ON CONFLICT (player_id, code) DO UPDATE SET rating = ?, played = ?, peak = MAX(peak, ?), updated = ?",
     )
-    .bind(me.id, code, rating, played, now)
+    .bind(
+      // VALUES
+      me.id, code, rating, played, rating, now,
+      // DO UPDATE SET ...
+      rating, played, rating, now,
+    )
     .run();
   const ranked = played >= RANKED_AFTER;
   const { rank, total } = await rankOf(env.DB, code, rating);
@@ -205,10 +220,10 @@ async function backup(request, env) {
   const now = Math.floor(Date.now() / 1000);
   await env.DB
     .prepare(
-      "INSERT INTO backups (player_id, data, updated) VALUES (?1, ?2, ?3) " +
-        "ON CONFLICT (player_id) DO UPDATE SET data = ?2, updated = ?3",
+      "INSERT INTO backups (player_id, data, updated) VALUES (?, ?, ?) " +
+        "ON CONFLICT (player_id) DO UPDATE SET data = ?, updated = ?",
     )
-    .bind(me.id, JSON.stringify(data), now)
+    .bind(me.id, JSON.stringify(data), now, JSON.stringify(data), now)
     .run();
   return json({ updated: now });
 }
@@ -219,10 +234,10 @@ async function renewCode(request, env) {
   const code = newCode();
   await env.DB
     .prepare(
-      "INSERT INTO backups (player_id, code_hash) VALUES (?1, ?2) " +
-        "ON CONFLICT (player_id) DO UPDATE SET code_hash = ?2",
+      "INSERT INTO backups (player_id, code_hash) VALUES (?, ?) " +
+        "ON CONFLICT (player_id) DO UPDATE SET code_hash = ?",
     )
-    .bind(me.id, await codeHash(code))
+    .bind(me.id, await codeHash(code), await codeHash(code))
     .run();
   return json({ code });
 }

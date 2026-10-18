@@ -127,7 +127,8 @@ test("checkRating allows the time puzzles take", () => {
   const old = { rating: 1000, played: 10, updated: 0 };
   assert.equal(checkRating(old, 1000, 20, 0), null);                 // a set's worth of slack
   assert.ok(checkRating(old, 1000, 40, 0));
-  assert.equal(checkRating(old, 1000, 40, 3600), null);               // an hour later
+  // Time allows more puzzles, but a single post is capped
+  assert.ok(checkRating(old, 1000, 40, 3600));
   assert.equal(checkRating(null, 1400, 20, 0), null);                 // first post after joining
   assert.ok(checkRating(null, 99, 20, 0));
 });
