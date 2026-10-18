@@ -10,6 +10,8 @@ export const RANKED_AFTER = 10;   // one rated set
 export const NAME = /^[A-Z0-9]{1,8}$/;
 
 export const SECONDS_PER_PUZZLE = 2;   // nobody solves puzzles faster than this, on average
+// A single submission should not claim an unbounded number of puzzles.
+export const MAX_PUZZLES_PER_POST = 2 * RANKED_AFTER;
 export const SIGNUPS_PER_DAY = 20;     // per address
 export const TAG_CHARS = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
 export const CODE_LEN = 12;            // recovery codes: CODE_LEN of TAG_CHARS, 60 random bits
@@ -23,11 +25,16 @@ export function checkRating(old, rating, played, now) {
   if (!Number.isInteger(played) || played < 1 || played > 1e6) return "played out of range";
   const from = old ? old.rating : START_RATING;
   const before = old ? old.played : 0;
+  const delta = played - before;
   if (played < before) return "fewer puzzles than before";
+  // require at least one new puzzle for any rating change
+  if (delta === 0 && rating !== from) return "rating changed without puzzles";
+  // cap how many puzzles a single submission can claim
+  if (delta > MAX_PUZZLES_PER_POST) return "too many puzzles in one post";
   // each puzzle moves the rating by less than MAX_STEP (0.5 for rounding)
-  if (Math.abs(rating - from) > MAX_STEP * (played - before) + 0.5) return "rating moved too far";
+  if (Math.abs(rating - from) > MAX_STEP * delta + 0.5) return "rating moved too far";
   // and puzzles take time (a set's worth of slack for the one being played)
-  if (old && played - before > RANKED_AFTER + (now - old.updated) / SECONDS_PER_PUZZLE)
+  if (old && delta > RANKED_AFTER + (now - old.updated) / SECONDS_PER_PUZZLE)
     return "too many puzzles too quickly";
   return null;
 }
