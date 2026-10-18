@@ -10,17 +10,17 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write   # to publish the release
+  contents: read
 
 jobs:
   build:
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: "3.12"
-      - run: pip install -r requirements.txt pyinstaller pillow   # pillow turns the icon into an .ico
+      - run: pip install -r requirements.txt pyinstaller==6.9.0 pillow==10.4.0   # pillow turns the icon into an .ico
 
       - name: Check the tag matches the game's version
         if: startsWith(github.ref, 'refs/tags/')
@@ -55,13 +55,23 @@ jobs:
           version=$(python -c "import puzzleth; print(puzzleth.VERSION)")
           mv dist/Puzzleth.exe "dist/Puzzleth-$version-windows.exe"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: Puzzleth-windows
           path: dist/*.exe
 
-      - uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/')
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # to publish the release
+    steps:
+      - uses: actions/download-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b # v4
+        with:
+          name: Puzzleth-windows
+          path: dist
+      - uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           files: dist/*.exe
           prerelease: true   # pre-alpha
