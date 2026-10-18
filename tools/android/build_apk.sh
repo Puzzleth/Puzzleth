@@ -62,14 +62,7 @@ mkdir -p "$WORK/res/mipmap" "$WORK/assets" "$WORK/classes" "$WORK/dex"
 cp tools/web/favicon.png "$WORK/res/mipmap/ic_launcher.png"
 cp -R build/web "$WORK/assets/web"
 rm -f "$WORK/assets/web/"*.tar.gz   # pygbag's copy of the source: not needed to play
-# The read-only token for the private Puzzleth-builds repository, where the app looks for Nightly
-# updates (see MainActivity.java). Without one the app never looks.
-TOKEN_FILE=${PUZZLETH_BUILDS_TOKEN_FILE:-$HOME/.puzzleth/builds-token}
-if [[ -s "$TOKEN_FILE" ]]; then
-  cp "$TOKEN_FILE" "$WORK/assets/nightly-token.txt"
-else
-  echo "warning: no $TOKEN_FILE, so this APK won't update itself from Nightly builds" >&2
-fi
+# No secrets are bundled in the APK. Nightly updates must be hosted publicly (see MainActivity.java).
 sed -e "s/@VERSION_CODE@/$VERSION_CODE/" -e "s/@VERSION_NAME@/$VERSION/" tools/android/AndroidManifest.xml \
   > "$WORK/AndroidManifest.xml"
 
