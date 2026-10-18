@@ -23,24 +23,50 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: "3.12"
       - run: pip install -r requirements.txt
       - run: python -m unittest discover -s tests
         env:
           SDL_VIDEODRIVER: dummy
-      - run: pip install pygbag==0.9.2 fonttools
+      - run: pip install pygbag==0.9.2 fonttools==4.53.0
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22"
+      - name: Server tests
+        working-directory: server
+        run: npm test
       - run: command -v ffmpeg || (sudo apt-get update && sudo apt-get install -y ffmpeg)   # converts added .wav/.mp3
       - run: tools/build_web.sh
+      - name: Upload web build
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: web-build
+          path: build/web
 
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Download web build
+        uses: actions/download-artifact@0b2256b8c012f0828dc542b3febcab082c67f72b # v4
+        with:
+          name: web-build
+          path: build/web
       - name: Publish to Puzzleth-builds
         working-directory: build/web
+        env:
+          BUILDS_TOKEN: ${{ secrets.BUILDS_TOKEN }}
         run: |
           git init -q -b nightly
           git config user.name "github-actions[bot]"
           git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
           git add -A
           git commit -q -m "Nightly build $(cat version.txt) from ${GITHUB_SHA::7}"
-          git push --force "https://x-access-token:${{ secrets.BUILDS_TOKEN }}@github.com/${{ github.repository_owner }}/Puzzleth-builds.git" nightly
+          git push --force "https://x-access-token:${BUILDS_TOKEN}@github.com/${{ github.repository_owner }}/Puzzleth-builds.git" nightly

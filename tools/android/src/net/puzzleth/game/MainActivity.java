@@ -56,6 +56,8 @@ public class MainActivity extends Activity {
     private static final String APP_HOST = "appassets.androidplatform.net";
     private static final String CDN_HOST = "pygame-web.github.io";
     private static final String NIGHTLY = "https://raw.githubusercontent.com/Puzzleth/Puzzleth-builds/nightly/";
+    /** How long a cached CDN file is considered fresh before we try to refresh it in the background. */
+    private static final long CDN_TTL_MS = 7L * 24 * 60 * 60 * 1000L;   // 7 days
     private static final Map<String, String> TYPES = new HashMap<>();
 
     static {
@@ -309,10 +311,28 @@ public class MainActivity extends Activity {
 
     // ---------------------------------------------------------------- files
 
-    /** A copy of ``url`` kept in ``file``, downloaded the first time it is asked for. */
+    /** A copy of ``url`` kept in ``file``, downloaded the first time it is asked for.
+     *  For CDN files (token == null), a stale file is refreshed in the background. */
     private static File cached(String url, File file, String token) throws IOException {
-        if (file.isFile()) return file;
-        save(download(url, token), file);
+        if (!file.isFile()) {
+            save(download(url, token), file);
+            return file;
+        }
+        if (token == null) {   // CDN assets: refresh occasionally
+            long now = System.currentTimeMillis();
+            if (now - file.lastModified() > CDN_TTL_MS) {
+                new Thread(() -> {
+                    try {
+                        save(download(url, null), file);
+                        // mark fresh even if mtime was identical
+                        //noinspection ResultOfMethodCallIgnored
+                        file.setLastModified(System.currentTimeMillis());
+                        Log.i("Puzzleth", "refreshed CDN asset " + url);
+                    } catch (IOException ignored) {
+                    }
+                }).start();
+            }
+        }
         return file;
     }
 
