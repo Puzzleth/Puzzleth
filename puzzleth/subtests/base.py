@@ -198,6 +198,12 @@ class ItemSubtest(Subtest):
         self.state = "item"
         self.fb = None
         self.on_item_start()
+        # Mark rated puzzles as pending until answered, to prevent skipping without a loss
+        if self.ladder and getattr(self.ladder, "kind", "") == "rated":
+            try:
+                self.app.profile.set_pending_rated(self.code, self.cur)
+            except Exception:
+                pass
 
     def submit(self, points, explain=""):
         if self.state != "item":
@@ -272,6 +278,11 @@ class ItemSubtest(Subtest):
         """Hook: the ladder recorded a result (the app saves rating progress here)."""
         if hasattr(self.app, "ladder_progress"):
             self.app.ladder_progress(self)
+        # Cleared once a result was recorded
+        try:
+            self.app.profile.clear_pending()
+        except Exception:
+            pass
 
     def _advance(self):
         if self.ladder:
@@ -304,7 +315,9 @@ class ItemSubtest(Subtest):
         if self.state == "item":
             lim = self.time_limit(self.cur)
             before = lim - self.timer_elapsed() if lim else None
-            self.item_t += dt
+            # Advance item timers by real elapsed time (unclamped), so slow devices don't get more time
+            timer_dt = getattr(self.app, "timer_dt", dt)
+            self.item_t += timer_dt
             if lim:
                 tick_last_seconds(before, lim - self.timer_elapsed())
             if lim and self.timer_elapsed() >= lim:
@@ -485,7 +498,8 @@ class SpeedSubtest(Subtest):
         self.flash = max(0.0, self.flash - dt * 4)
         if self.state == "run":
             before = self.remaining
-            self.remaining -= dt
+            timer_dt = getattr(self.app, "timer_dt", dt)
+            self.remaining -= timer_dt
             tick_last_seconds(before, self.remaining)
             if self.remaining <= 0:
                 self.remaining = 0

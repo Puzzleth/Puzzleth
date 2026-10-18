@@ -60,6 +60,8 @@ class App:
         else:
             self._set_language(language)
             self._show_initial_scene()
+        # If a rated puzzle was pending when the app last closed, count it as a miss now
+        self._apply_pending_rated_loss()
 
     @staticmethod
     def _set_language(language):
@@ -96,6 +98,8 @@ class App:
         return MenuScene(self) if self.profile.current else NameEntryScene(self)
 
     def to_menu(self):
+        # Quitting mid-puzzle in a rated set counts as a miss
+        self._record_pending_rated_loss_if_any()
         self.battery = None
         self.goto(self._menu())
 
@@ -160,6 +164,8 @@ class App:
         self.goto(cls(self, feedback=feedback))
 
     def restart_subtest(self):
+        # Restarting mid-puzzle in a rated set counts as a miss
+        self._record_pending_rated_loss_if_any()
         if self.current_cls:
             self.begin_subtest(self.current_cls, self.current_ladder)
 
@@ -331,7 +337,10 @@ class App:
                 break
             ms = self.clock.tick(T.FPS)
             self._check_speed(ms)
-            dt = min(0.05, ms / 1000)
+            real_dt = ms / 1000
+            dt = min(0.05, real_dt)
+            # Use unclamped wall-clock time for in-game timers; animations keep the small clamp
+            self.timer_dt = real_dt
             self.step(dt, pygame.event.get())
             if web.IS_WEB and frame % 30 == 0:
                 self.portrait = web.is_portrait()
@@ -350,6 +359,40 @@ class App:
                 pygame.display.flip()
             await asyncio.sleep(0)
         pygame.quit()
+
+    # ------------------------------------------------------------ rated fairness
+    def _record_pending_rated_loss_if_any(self):
+        """If leaving a rated puzzle mid-item, record it as a miss."""
+        scene = getattr(self, "scene", None)
+        if isinstance(scene, Subtest) and getattr(scene, "ladder", None) and scene.ladder.kind == "rated":
+            if getattr(scene, "state", None) == "item":
+                try:
+                    scene.ladder.record(scene.cur, False)
+                    self.ladder_progress(scene)
+                    self.profile.clear_pending()
+                except Exception:
+                    pass
+
+    def _apply_pending_rated_loss(self):
+        """On startup, turn any pending rated puzzle into a recorded miss."""
+        pend = self.profile.pending_rated()
+        if not pend:
+            return
+        try:
+            from .subtests import BY_CODE
+            from .challenge import update, level_for, level_rating
+            code, level = pend["code"], pend["level"]
+            cls = BY_CODE.get(code)
+            if cls:
+                r = self.profile.rating(code) or {"rating": START_RATING, "played": 0}
+                # If the stored level is out of range, use the nominal one for the current rating
+                n_items, max_level = cls.n_items, cls.max_level
+                lv = level if 1 <= level <= max_level else level_for(r["rating"], n_items, max_level)
+                opp = level_rating(lv, n_items)
+                new = update(r["rating"], opp, False, r["played"])
+                self.profile.set_rating(code, new, r["played"] + 1)
+        finally:
+            self.profile.clear_pending()
 
 
 async def show_error(details):

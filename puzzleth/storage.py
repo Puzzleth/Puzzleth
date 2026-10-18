@@ -34,7 +34,7 @@ def _default_settings():
 
 def _default_player():
     # "online": their place on the online leaderboard, once they join it (see online.py)
-    return {"subtests": {}, "batteries": [], "ratings": {}, "daily": {},
+    return {"subtests": {}, "batteries": [], "ratings": {}, "daily": {}, "pending": None,
             "settings": {"feedback": True, "show_scores": True}, "seen": 0, "online": None}
 
 
@@ -80,7 +80,8 @@ class Profile:
         try:
             if web.IS_WEB:
                 # browsers: the page's localStorage survives reloads; the virtual file system doesn't
-                loaded = json.loads(web.load(WEB_KEY) or "{}")
+                raw = web.load(WEB_KEY) or "{}"
+                loaded = json.loads(raw)
             else:
                 src = self.path
                 legacy = _legacy_path()
@@ -89,8 +90,20 @@ class Profile:
                 with open(src) as f:
                     loaded = json.load(f)
             self._load(loaded)
-        except (OSError, ValueError):
-            pass
+        except Exception:
+            # Malformed or unreadable profile: keep the bad data aside and start fresh
+            if web.IS_WEB:
+                try:
+                    web.save(WEB_KEY + ".bad", raw if isinstance(raw, str) else json.dumps(loaded))
+                except Exception:
+                    pass
+            else:
+                try:
+                    if self.path and self.path.exists():
+                        ts = time.strftime("%Y%m%d-%H%M%S")
+                        self.path.rename(self.path.with_name(self.path.name + f".corrupt-{ts}"))
+                except Exception:
+                    pass
         self.settings = _Settings(self.root["settings"], self)
         self.data = self._player_data()
 
@@ -107,6 +120,24 @@ class Profile:
                 data.setdefault(k, v)
             for k, v in _default_player()["settings"].items():
                 data["settings"].setdefault(k, v)
+            # Harden nested structures against malformed data
+            if not isinstance(data.get("subtests"), dict):
+                data["subtests"] = {}
+            else:
+                clean = {}
+                for code, entry in data["subtests"].items():
+                    if isinstance(entry, dict) and isinstance(entry.get("history"), list):
+                        best = entry.get("best", 0)
+                        try:
+                            best_int = int(best)
+                        except Exception:
+                            best_int = 0
+                        clean[code] = {"history": list(entry["history"])[-50:], "best": best_int}
+                    else:
+                        clean[code] = {"history": [], "best": 0}
+                data["subtests"] = clean
+            if data.get("pending") is not None and not isinstance(data.get("pending"), dict):
+                data["pending"] = None
         if self.root["current"] not in self.root["players"]:
             self.root["current"] = None
 
@@ -127,6 +158,8 @@ class Profile:
             tmp = self.path.with_suffix(".tmp")
             with open(tmp, "w") as f:
                 json.dump(self.root, f, indent=1)
+                f.flush()
+                os.fsync(f.fileno())
             tmp.replace(self.path)
         except OSError:
             pass
@@ -210,11 +243,43 @@ class Profile:
         for k, v in (data or {}).items():
             if k in player and isinstance(v, type(player[k])):
                 player[k] = v
+        # Clean nested 'subtests' entries (shape and types)
+        if not isinstance(player.get("subtests"), dict):
+            player["subtests"] = {}
+        else:
+            clean = {}
+            for code, entry in player["subtests"].items():
+                if isinstance(entry, dict) and isinstance(entry.get("history"), list):
+                    best = entry.get("best", 0)
+                    try:
+                        best_int = int(best)
+                    except Exception:
+                        best_int = 0
+                    clean[code] = {"history": list(entry["history"])[-50:], "best": best_int}
+                else:
+                    clean[code] = {"history": [], "best": 0}
+            player["subtests"] = clean
         player["settings"] = {**_default_player()["settings"], **player["settings"]}
         player["online"] = account
         self.root["players"][name] = player
         self.switch(name)
         return None
+
+    # ------------------------------------------------------------ pending rated loss (challenge fairness)
+    def pending_rated(self):
+        p = self.data.get("pending")
+        if isinstance(p, dict) and p.get("kind") == "rated" and "code" in p and "level" in p:
+            return {"code": p["code"], "level": int(p["level"])}
+        return None
+
+    def set_pending_rated(self, code, level):
+        self.data["pending"] = {"kind": "rated", "code": code, "level": int(level)}
+        self.save()
+
+    def clear_pending(self):
+        if self.data.get("pending") is not None:
+            self.data["pending"] = None
+            self.save()
 
     def forget_online(self, token):
         """Remember to delete a leaderboard player from the server (see online.Online.flush)."""
