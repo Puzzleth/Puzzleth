@@ -79,7 +79,11 @@ class DigitSpan(Subtest):
         self.fb = None
 
     def _submit(self):
-        ok = [int(c) for c in self.entry.value] == self.target
+        try:
+            typed = [int(c) for c in self.entry.value]
+        except ValueError:
+            typed = []
+        ok = typed == self.target
         if self.item_i < 0:
             self.fb = {"ok": ok, "sample": True}
         else:
