@@ -76,5 +76,34 @@ else
   perl -pi -e "s/puzzleth\.apk/puzzleth-$build_id.apk/g; s/\@PUZZLETH_BUILD\@/$build_id/g" build/web/index.html
   echo "$build_id" > build/web/version.txt
   grep -q "puzzleth-$build_id.apk" build/web/index.html || { echo "error: index.html doesn't load the game" >&2; exit 1; }
+  # Vendor pygbag runtime locally for offline use (no CDN at runtime).
+  # Find a directory inside the installed pygbag package that contains pythons.js and browserfs.min.js.
+  RUNTIME_DIR=$(python3 - <<'PY'
+import os, sys
+try:
+  import pygbag
+except Exception as e:
+  print("", end="")
+  sys.exit(0)
+base = os.path.dirname(pygbag.__file__)
+found = ""
+for root, dirs, files in os.walk(base):
+  if "pythons.js" in files and "browserfs.min.js" in files:
+    found = root
+    break
+print(found, end="")
+PY
+)
+  if [[ -z "$RUNTIME_DIR" ]]; then
+    echo "error: could not locate pygbag runtime (pythons.js + browserfs.min.js) in the pygbag package" >&2
+    exit 1
+  fi
+  mkdir -p build/web/runtime
+  if command -v rsync >/dev/null 2>&1; then
+    rsync -a --delete "$RUNTIME_DIR"/ build/web/runtime/
+  else
+    cp -R "$RUNTIME_DIR"/. build/web/runtime/
+  fi
+  # Keep only files we actually reference if needed; for now copy the full runtime subtree.
   echo "Built build/web/ (build $build_id) — upload that folder to any static web host."
 fi
