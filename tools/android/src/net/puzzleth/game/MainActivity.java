@@ -68,6 +68,8 @@ public class MainActivity extends Activity {
     private static final String CDN_HOST = "pygame-web.github.io";
     // Public, unauthenticated base URL for Nightly artifacts (see PR notes for hosting options).
     private static final String NIGHTLY = "https://puzzleth.github.io/Puzzleth-builds/nightly/";
+    // Nightly updates are disabled for now. Set to true to re-enable background update checks/downloads.
+    private static final boolean NIGHTLY_UPDATES_ENABLED = false;
     private static final Map<String, String> TYPES = new HashMap<>();
     // Optional: base64-encoded Ed25519 public key (X.509/SPKI) to verify manifest.sig. Leave empty to disable.
     private static final String MANIFEST_PUBKEY_B64 = "";
@@ -221,15 +223,17 @@ public class MainActivity extends Activity {
                 if (APP_HOST.equals(uri.getHost())) {
                     if (path.equals("/")) path = "/index.html";
                     if (path.equals("/version.txt")) {   // which build is newest: this one, unless Nightly has a newer one
-                        checkNightly();
+                        if (NIGHTLY_UPDATES_ENABLED) checkNightly();
                         return respond(path, new ByteArrayInputStream(buildId().getBytes(StandardCharsets.UTF_8)));
                     }
-                    File nightly = nightly();
-                    if (nightly != null) {
-                        try {   // (a song or picture not downloaded yet is fetched from the same build)
-                            return respond(path, new FileInputStream(cached(NIGHTLY + path.substring(1), new File(nightly, path))));
-                        } catch (IOException e) {
-                            // offline: the app's own copy, if it has one
+                    if (NIGHTLY_UPDATES_ENABLED) {
+                        File nightly = nightly();
+                        if (nightly != null) {
+                            try {   // (a song or picture not downloaded yet is fetched from the same build)
+                                return respond(path, new FileInputStream(cached(NIGHTLY + path.substring(1), new File(nightly, path))));
+                            } catch (IOException e) {
+                                // offline: the app's own copy, if it has one
+                            }
                         }
                     }
                     return respond(path, getAssets().open("web" + path));
@@ -313,6 +317,7 @@ public class MainActivity extends Activity {
 
     /** Look for a newer Nightly build in the background (at most once a minute). */
     private void checkNightly() {
+        if (!NIGHTLY_UPDATES_ENABLED) return;
         // No token is used; NIGHTLY must be publicly readable.
         long now = System.currentTimeMillis();
         if (now - lastCheck < 60000 || !checking.compareAndSet(false, true)) return;
