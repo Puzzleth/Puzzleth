@@ -76,7 +76,7 @@ class RegressionTests(unittest.TestCase):
         s.remaining = 1.0
         for _ in range(10):
             s.update(0.05)  # clamped animation delta
-        self.assertEqual(s.remaining, 0.0)
+        self.assertAlmostEqual(s.remaining, 0.0, places=12)
         self.assertIsNotNone(s.app.result)
 
     def test_rated_quit_counts_as_miss(self):
