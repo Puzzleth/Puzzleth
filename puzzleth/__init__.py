@@ -1,7 +1,7 @@
 """Puzzleth: a cognitive puzzle training game."""
 
 VERSION = "0.0.4"
-STAGE = "PRE-ALPHA"
+STAGE = "ALPHA"
 
 
 def version_label():

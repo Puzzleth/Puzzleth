@@ -232,7 +232,7 @@ class Localization(unittest.TestCase):
                     os.environ["PUZZLETH_HOME"] = previous
 
     def test_version_label(self):
-        self.assertEqual(version_label(), "v0.0.4 PRE-ALPHA")
+        self.assertEqual(version_label(), "v0.0.4 ALPHA")
 
 
 class FakeApp:

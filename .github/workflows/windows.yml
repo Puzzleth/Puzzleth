@@ -74,7 +74,7 @@ jobs:
       - uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
         with:
           files: dist/*.exe
-          prerelease: true   # pre-alpha
+          prerelease: true   # alpha
           body: |
             Download the `.exe` below and run it: no Python or install needed, and it plays offline (the leaderboard needs a connection).
             Windows may warn that it's from an unknown publisher, because it isn't code-signed: choose "More info", then "Run anyway".
