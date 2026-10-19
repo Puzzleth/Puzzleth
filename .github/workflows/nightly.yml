@@ -1,7 +1,7 @@
 # Tests and builds the Nightly branch, and publishes the build to the nightly branch of the private
 # Puzzleth-builds repository, where the Android app looks for updates (see
 # tools/android/src/net/puzzleth/game/MainActivity.java). The web version is only deployed from main
-# (web.yml).
+# (pages.yml).
 #
 # One-time setup: create the private repository Puzzleth/Puzzleth-builds, and add a fine-grained token
 # with read and write access to its contents as this repository's secret BUILDS_TOKEN.

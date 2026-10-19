@@ -27,7 +27,7 @@ S, and harder puzzles keep coming after the real test runs out.
 
 ## Play in your browser
 
-**[puzzleth.github.io/Puzzleth](https://puzzleth.github.io/Puzzleth/)** works on phones, tablets and
+**[puzzleth.github.io/Puzzleth/game](https://puzzleth.github.io/Puzzleth/game/)** works on phones, tablets and
 computers, with nothing to install. Hold your phone sideways. Puzzleth saves your progress in that
 browser. On a phone, "Add to Home Screen" gives it its own icon and more room on screen.
 
@@ -179,8 +179,9 @@ game's download, and the fonts are cut down to the characters the game uses.
 Each build names the game's download after its contents and writes `version.txt`. Browsers can't
 then start an old game from a new page, and an open page can see that a newer build is out.
 
-The GitHub Actions workflow in `.github/workflows/web.yml` runs the tests, then builds and
-publishes the site to GitHub Pages on every push to `main`. To turn it on, open the repository's
+The GitHub Actions workflow in `.github/workflows/pages.yml` runs the tests, then builds and
+publishes the game to GitHub Pages under `/game` on every push to `main`, beside the website from
+the `website` branch (which carries the same workflow, so a push there republishes both). To turn it on, open the repository's
 Settings > Pages and set Source to "GitHub Actions".
 
 **Windows executable and releases.** The version is set in `puzzleth/__init__.py` and shown on the
