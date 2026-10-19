@@ -1,4 +1,4 @@
-<html lang="en-us"><script src="runtime/pythons.js" type=module id=site data-LINES={{cookiecutter.LINES}} data-CONSOLE={{cookiecutter.CONSOLE}} data-python=python{{cookiecutter.PYBUILD}} data-os=vtx,fs,snd,gui async defer>#<!--
+<html lang="en-us"><script src="{{cookiecutter.cdn}}pythons.js" type=module id=site data-LINES={{cookiecutter.LINES}} data-CONSOLE={{cookiecutter.CONSOLE}} data-python=python{{cookiecutter.PYBUILD}} data-os=vtx,fs,snd,gui async defer>#<!--
 
 print("""
 Loading {{cookiecutter.title}} from {{cookiecutter.archive}}.apk
@@ -569,8 +569,10 @@ function puzzleth_fetch_result(id) {
     <!-- Puzzleth: pygbag 0.9 default template (MIT, (c) 2022 pygame wasm) with a dark background
          and home-screen icon; see tools/build_web.sh -->
 
-    <link rel="prefetch" href="runtime/vt/xterm.js">
-    <link rel="prefetch" href="runtime/vt/xterm-addon-image.js">
+    <link rel="prefetch" href="{{cookiecutter.cdn}}pythonrc.py">
+    <link rel="prefetch" href="{{cookiecutter.cdn}}vt/xterm.js">
+    <link rel="prefetch" href="{{cookiecutter.cdn}}vt/xterm-addon-image.js">
+    <link rel="prefetch" href="{{cookiecutter.cdn}}vt/xterm-addon-image.js">
 
 
     <link rel="icon" type="image/png" href="favicon.png" sizes="16x16">
@@ -652,7 +654,7 @@ function puzzleth_fetch_result(id) {
         }
     </style>
 
-    <script src="runtime/browserfs.min.js"></script>
+    <script src="{{cookiecutter.cdn}}/browserfs.min.js"></script>
 
 </head>
 
@@ -713,7 +715,7 @@ frameborder="1"
                 mozallowfullscreen="true"
                 sandbox="allow-same-origin allow-top-navigation allow-scripts allow-pointer-lock"
                 allow="autoplay; fullscreen *; geolocation; microphone; camera; midi; monetization; xr-spatial-tracking; gamepad; gyroscope; accelerometer; xr; cross-origin-isolated"
-                src="runtime/empty.html"
+                src="{{cookiecutter.cdn}}empty.html"
                 scrolling="yes">
             </iframe>
         </div>
