@@ -1,6 +1,6 @@
 """Shared machinery for subtests.
 
-ItemSubtest implements the WAIS administration rules:
+ItemSubtest implements the real test's administration rules:
   * start point   - adults begin partway into the item list,
   * reversal      - if either of the first two items is not perfect, earlier items are given in
                     reverse order until two consecutive perfect scores; unadministered items
@@ -8,7 +8,7 @@ ItemSubtest implements the WAIS administration rules:
   * discontinue   - stop after N consecutive scores of 0,
   * time limits   - per item, where the real test has them.
 
-With a ``ladder`` (see challenge.py) the WAIS rules are replaced by a fixed-length set of puzzles at
+With a ``ladder`` (see challenge.py) the administration rules are replaced by a fixed-length set of puzzles at
 levels the ladder picks, which may go past ``n_items`` up to ``max_level``.
 """
 import math
@@ -198,6 +198,12 @@ class ItemSubtest(Subtest):
         self.state = "item"
         self.fb = None
         self.on_item_start()
+        # Mark rated puzzles as pending until answered, to prevent skipping without a loss
+        if self.ladder and getattr(self.ladder, "kind", "") == "rated":
+            try:
+                self.app.profile.set_pending_rated(self.code, self.cur)
+            except Exception:
+                pass
 
     def submit(self, points, explain=""):
         if self.state != "item":
@@ -272,6 +278,11 @@ class ItemSubtest(Subtest):
         """Hook: the ladder recorded a result (the app saves rating progress here)."""
         if hasattr(self.app, "ladder_progress"):
             self.app.ladder_progress(self)
+        # Cleared once a result was recorded
+        try:
+            self.app.profile.clear_pending()
+        except Exception:
+            pass
 
     def _advance(self):
         if self.ladder:
@@ -304,7 +315,9 @@ class ItemSubtest(Subtest):
         if self.state == "item":
             lim = self.time_limit(self.cur)
             before = lim - self.timer_elapsed() if lim else None
-            self.item_t += dt
+            # Advance item timers by real elapsed time (unclamped), so slow devices don't get more time
+            timer_dt = getattr(self.app, "timer_dt", dt)
+            self.item_t += timer_dt
             if lim:
                 tick_last_seconds(before, lim - self.timer_elapsed())
             if lim and self.timer_elapsed() >= lim:
@@ -405,7 +418,7 @@ class ItemSubtest(Subtest):
 
 
 class SpeedSubtest(Subtest):
-    """Untimed practice with feedback, then a single fixed time limit (120 s on the WAIS)."""
+    """Untimed practice with feedback, then a single fixed time limit (120 s on the real test)."""
 
     duration = 120
     practice_n = 3
@@ -485,7 +498,10 @@ class SpeedSubtest(Subtest):
         self.flash = max(0.0, self.flash - dt * 4)
         if self.state == "run":
             before = self.remaining
-            self.remaining -= dt
+            timer_dt = getattr(self.app, "timer_dt", dt)
+            self.remaining -= timer_dt
+            if self.remaining <= 1e-9:
+                self.remaining = 0.0
             tick_last_seconds(before, self.remaining)
             if self.remaining <= 0:
                 self.remaining = 0

@@ -43,8 +43,8 @@ def main():
     app.to_menu()
     shot("skill-tree")
 
-    indexes, fsiq = scoring.compute_indexes(sample)
-    app.goto(scenes.BatteryResultScene(app, sample, {c: 10 for c in sample}, indexes, fsiq))
+    indexes, overall = scoring.compute_indexes(sample)
+    app.goto(scenes.BatteryResultScene(app, sample, {c: 10 for c in sample}, indexes, overall))
     shot("assessment-result", 420)
 
     for code, level, name in [("MR", 20, "matrix-reasoning"), ("BD", 16, "block-design"),

@@ -1,6 +1,6 @@
 """Item banks for the verbal subtests, grouped into six difficulty tiers.
 
-Similarities: each category yields many word pairs. The answers mirror WAIS scoring:
+Similarities: each category yields many word pairs. The answers mirror real examiner scoring:
   2 pts - the abstract, general category ("Both are fruits")
   1 pt  - a concrete shared property ("Both can be eaten")
   0 pts - wrong, overly general, or only true of one word.

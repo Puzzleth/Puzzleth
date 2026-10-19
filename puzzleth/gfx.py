@@ -210,12 +210,49 @@ def arc(surf, center, r, width, a0, a1, color, caps=False):
             circle(surf, (cx + r * math.sin(a), cy - r * math.cos(a)), width / 2, color)
 
 
+# Rings are drawn once into a sprite and then just blitted: working out their outlines every frame
+# was most of the time a frame took, which slow phones running the browser version can't spare. The
+# sprite is drawn at twice the size and scaled down, which smooths its edges in every build.
+_ring_cache = {}
+_SS = 2   # supersampling
+
+
+def _arc_raw(surf, center, r, width, a0, a1, color, caps=False):
+    """arc() without anti-aliasing, for a supersampled sprite."""
+    if a1 - a0 <= 1e-3:
+        return
+    cx, cy = center
+    steps = max(3, int((a1 - a0) * r / 3))
+    outer = _arc_pts(cx, cy, r + width / 2, a0, a1, steps)
+    inner = _arc_pts(cx, cy, r - width / 2, a0, a1, steps)
+    pygame.draw.polygon(surf, color, _ipts(outer + inner[::-1]))
+    if caps:
+        for a in (a0, a1):
+            pygame.draw.circle(surf, color, _ipts([(cx + r * math.sin(a), cy - r * math.cos(a))])[0], width / 2)
+
+
+def _ring_sprite(surf, key, center, r, width, background, draw):
+    sprite = _ring_cache.get(key)
+    half = int(r + width / 2) + 3
+    if sprite is None:
+        if len(_ring_cache) > 1500:
+            _ring_cache.clear()
+        big = pygame.Surface((2 * half * _SS, 2 * half * _SS), pygame.SRCALPHA)
+        big.fill((*background[:3], 0))   # (so the edges fade out in the ring's colour, not black)
+        draw(big, (half * _SS, half * _SS), _SS)
+        sprite = _ring_cache[key] = pygame.transform.smoothscale(big, (2 * half, 2 * half))
+    surf.blit(sprite, (round(center[0]) - half, round(center[1]) - half))
+
+
 def ring(surf, center, r, width, frac, color, track=T.TRACK, caps=True):
     """Progress ring starting at 12 o'clock."""
-    arc(surf, center, r, width, 0, TAU - 1e-4, track)
-    frac = clamp(frac, 0, 1)
-    if frac > 0:
-        arc(surf, center, r, width, 0, TAU * frac - (1e-4 if frac >= 1 else 0), color, caps=caps and frac < 1)
+    frac = round(clamp(frac, 0, 1) * 400) / 400
+
+    def draw(s, c, k):
+        _arc_raw(s, c, r * k, width * k, 0, TAU - 1e-4, track)
+        if frac > 0:
+            _arc_raw(s, c, r * k, width * k, 0, TAU * frac - (1e-4 if frac >= 1 else 0), color, caps=caps and frac < 1)
+    _ring_sprite(surf, ("ring", r, width, frac, tuple(color), tuple(track), caps), center, r, width, track, draw)
 
 
 def pips(surf, center, r, width, n, filled, color, track=T.TRACK, ghost=0, ghost_color=None, gap=None):
@@ -223,16 +260,20 @@ def pips(surf, center, r, width, n, filled, color, track=T.TRACK, ghost=0, ghost
     seg = TAU / n
     gap = seg * 0.22 if gap is None else gap
     ghost_color = ghost_color or lerp_color(track, color, 0.38)
-    for i in range(n):
-        a0 = i * seg + gap / 2
-        a1 = (i + 1) * seg - gap / 2
-        if i < filled:
-            c = color
-        elif i < ghost:
-            c = ghost_color
-        else:
-            c = track
-        arc(surf, center, r, width, a0, a1, c)
+
+    def draw(s, c, k):
+        for i in range(n):
+            a0 = i * seg + gap / 2
+            a1 = (i + 1) * seg - gap / 2
+            if i < filled:
+                col = color
+            elif i < ghost:
+                col = ghost_color
+            else:
+                col = track
+            _arc_raw(s, c, r * k, width * k, a0, a1, col)
+    key = ("pips", r, width, n, filled, tuple(color), tuple(track), ghost, tuple(ghost_color), gap)
+    _ring_sprite(surf, key, center, r, width, track, draw)
 
 
 # ---------------------------------------------------------------- glow & panels
@@ -240,21 +281,27 @@ def pips(surf, center, r, width, n, filled, color, track=T.TRACK, ghost=0, ghost
 _glow_cache = {}
 
 
+_glow_falloff = None
+
+
 def _glow_surface(radius, color, strength):
+    global _glow_falloff
     key = (radius, color, strength)
     s = _glow_cache.get(key)
     if s is None:
-        if len(_glow_cache) > 600:
+        if len(_glow_cache) > 1500:
             _glow_cache.clear()
-        n = 40
-        small = pygame.Surface((n, n))
-        half = n / 2
-        for y in range(n):
-            for x in range(n):
-                d = math.hypot(x - half + 0.5, y - half + 0.5) / half
-                f = max(0.0, 1.0 - d) ** 2.2 * strength
-                small.set_at((x, y), tuple(min(255, int(c * f)) for c in color))
-        s = pygame.transform.smoothscale(small, (radius * 2, radius * 2))
+        if _glow_falloff is None:   # the soft round shape, made once; each glow is it scaled and tinted
+            n = 40
+            _glow_falloff = pygame.Surface((n, n))
+            half = n / 2
+            for y in range(n):
+                for x in range(n):
+                    d = math.hypot(x - half + 0.5, y - half + 0.5) / half
+                    v = int(255 * max(0.0, 1.0 - d) ** 2.2)
+                    _glow_falloff.set_at((x, y), (v, v, v))
+        s = pygame.transform.smoothscale(_glow_falloff, (radius * 2, radius * 2))
+        s.fill(tuple(min(255, int(c * strength)) for c in color), special_flags=pygame.BLEND_MULT)
         _glow_cache[key] = s
     return s
 
@@ -286,15 +333,146 @@ def panel(surf, rect, fill=T.PANEL, border=T.BORDER, radius=14, alpha=235, borde
     surf.blit(s, rect)
 
 
+_overlay_cache = {}
+
+
 def overlay(surf, color=(0, 0, 0), alpha=150):
     # on the game canvas this covers the whole stage around it too (see display.py)
     surf = surf.get_abs_parent()
-    s = pygame.Surface(surf.get_size(), pygame.SRCALPHA)
-    s.fill((*color, int(alpha)))
+    key = (surf.get_size(), tuple(color))
+    s = _overlay_cache.get(key)
+    if s is None:   # one plain surface per stage size, faded with set_alpha: no new surface every frame
+        _overlay_cache.clear()
+        s = _overlay_cache[key] = pygame.Surface(surf.get_size())
+        s.fill(color)
+    s.set_alpha(int(alpha))
     surf.blit(s, (0, 0))
 
 
+# ---------------------------------------------------------------- grades
+
+# (top of the letter, bottom of the letter, outline) for each grade (see scoring.GRADES)
+_GRADE_STYLE = {
+    "S": ((255, 248, 200), (226, 150, 30), (88, 48, 4)),
+    "A": ((196, 255, 224), (52, 186, 116), (8, 58, 34)),
+    "B": ((206, 220, 255), (88, 124, 238), (14, 28, 78)),
+    "C": ((255, 222, 176), (214, 124, 46), (76, 38, 10)),
+    "D": ((150, 142, 136), (82, 76, 72), (24, 21, 21)),
+}
+_grade_cache = {}
+
+
+def _gradient(size, top, bottom):
+    w, h = size
+    strip = pygame.Surface((1, h), pygame.SRCALPHA)
+    for y in range(h):
+        strip.set_at((0, y), (*lerp_color(top, bottom, y / max(1, h - 1)), 255))
+    return pygame.transform.scale(strip, (w, h))
+
+
+def _masked(layer, mask):
+    """``layer`` kept only where the letter ``mask`` (white, anti-aliased) is."""
+    layer.blit(mask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
+    return layer
+
+
+def _tatter(surf, size, rng):
+    """Batter a D: grime, chipped edges, holes and cracks right through it."""
+    w, h = surf.get_size()
+    clear = (0, 0, 0, 0)
+    for _ in range(4):   # cracks: jagged lines from an edge in towards the middle
+        x, y = rng.choice([(rng.uniform(0, w), 0), (rng.uniform(0, w), h), (0, rng.uniform(0, h)),
+                           (w, rng.uniform(0, h))])
+        pts = [(x, y)]
+        for _ in range(4):
+            x += (w / 2 - x) * rng.uniform(0.2, 0.45) + rng.uniform(-1, 1) * size * 0.08
+            y += (h / 2 - y) * rng.uniform(0.2, 0.45) + rng.uniform(-1, 1) * size * 0.08
+            pts.append((x, y))
+        pygame.draw.lines(surf, clear, False, _ipts(pts), max(1, round(size / 26)))
+    for _ in range(7):   # chips bitten out of the edges
+        cx, cy = rng.uniform(0, w), rng.choice([rng.uniform(0, h * 0.2), rng.uniform(h * 0.8, h)])
+        r = size * rng.uniform(0.04, 0.09)
+        pygame.draw.polygon(surf, clear, _ipts([(cx + r * math.cos(a), cy + r * math.sin(a))
+                                                for a in (rng.uniform(0, TAU) for _ in range(5))]))
+    for _ in range(6):   # small holes
+        pygame.draw.circle(surf, clear, (rng.uniform(0, w), rng.uniform(0, h)), max(1, size * rng.uniform(0.015, 0.035)))
+
+
+def _grade_surface(letter, size):
+    """The letter itself (without its animated glow and sparkles), cached."""
+    key = (letter, size, T.large_text)
+    img = _grade_cache.get(key)
+    if img is not None:
+        return img
+    top, bottom, edge = _GRADE_STYLE[letter]
+    font = T.font(size, True)
+    mask = font.render(letter, True, (255, 255, 255))
+    outline = font.render(letter, True, edge)
+    o = max(1, round(T.text_px(size) / 22))   # outline thickness
+    pad = 3 * o
+    img = pygame.Surface((mask.get_width() + 2 * pad, mask.get_height() + 2 * pad), pygame.SRCALPHA)
+    shadow = outline.copy()
+    shadow.set_alpha(150)
+    img.blit(shadow, (pad + o, pad + 2 * o))
+    for k in range(12):
+        a = k * TAU / 12
+        img.blit(outline, (pad + round(o * math.cos(a)), pad + round(o * math.sin(a))))
+    face = _masked(_gradient(mask.get_size(), top, bottom), mask)
+    if letter == "S":   # a polished shine across the top half
+        shine = pygame.Surface(mask.get_size(), pygame.SRCALPHA)
+        shine.fill((255, 255, 255, 110), (0, 0, mask.get_width(), round(mask.get_height() * 0.47)))
+        face.blit(_masked(shine, mask), (0, 0))
+    elif letter == "D":   # dull and grimy
+        rng = random.Random(size * 31 + 7)
+        grime = pygame.Surface(mask.get_size(), pygame.SRCALPHA)
+        for _ in range(mask.get_width() * mask.get_height() // 40):
+            grime.set_at((rng.randrange(mask.get_width()), rng.randrange(mask.get_height())),
+                         (30, 26, 24, rng.randrange(60, 200)))
+        face.blit(_masked(grime, mask), (0, 0))
+    img.blit(face, (pad, pad))
+    if letter == "D":
+        _tatter(img, T.text_px(size), random.Random(size * 17 + 3))
+        img = pygame.transform.rotozoom(img, 7, 1)   # knocked askew
+    if len(_grade_cache) > 200:
+        _grade_cache.clear()
+    _grade_cache[key] = img
+    return img
+
+
+def _sparkle(surf, center, r, color):
+    x, y = center
+    poly(surf, [(x, y - r), (x + r * 0.22, y), (x, y + r), (x - r * 0.22, y)], color)
+    poly(surf, [(x - r, y), (x, y - r * 0.22), (x + r, y), (x, y + r * 0.22)], color)
+
+
+def grade_badge(surf, letter, center, size, t=0.0, alpha=255):
+    """Draw a grade letter centred on ``center``: S in shining gold with sparkles, A to C clean and
+    coloured, D battered and cracked. Returns its rect."""
+    img = _grade_surface(letter, size)
+    rect = img.get_rect(center=(int(center[0]), int(center[1])))
+    px = T.text_px(size)
+    if letter == "S":
+        glow(surf, rect.center, px * 1.5, T.GOLD, (0.32 + 0.12 * math.sin(t * 2.2)) * alpha / 255)
+    elif letter == "A":
+        glow(surf, rect.center, px * 1.2, T.GRADE_COLORS["A"], 0.16 * alpha / 255)
+    if alpha < 255:
+        img = img.copy()
+        img.set_alpha(int(alpha))
+    surf.blit(img, rect)
+    if letter == "S" and alpha >= 255:
+        for k, (fx, fy) in enumerate(((0.92, 0.18), (0.08, 0.72), (0.78, 0.9))):
+            twinkle = max(0.0, math.sin(t * 2.6 + k * 2.1))
+            if twinkle > 0.05:
+                at = (rect.x + rect.w * fx, rect.y + rect.h * fy)
+                glow(surf, at, px * 0.35 * twinkle + 4, T.GOLD, 0.6 * twinkle)
+                _sparkle(surf, at, px * 0.16 * twinkle + 1, (255, 252, 230))
+    return rect
+
+
 # ---------------------------------------------------------------- background
+
+# Set on devices too slow for the full background (see App._check_speed): it then has fewer motes.
+low_power = False
 
 
 class Background:
@@ -333,7 +511,7 @@ class Background:
             self._build(*surf.get_size())
         h = self.size[1]
         surf.blit(self.base, (0, 0))
-        for x, y, size, phase, speed in self.motes:
+        for x, y, size, phase, speed in self.motes[::4] if low_power else self.motes:
             yy = (y - t * speed) % (h + 40) - 20
             xx = x + math.sin(t * 0.2 + phase) * 12
             a = 0.25 + 0.35 * (0.5 + 0.5 * math.sin(t * 0.9 + phase))

@@ -1,6 +1,7 @@
 """Main loop and scene/flow management."""
 import asyncio
 import os
+import traceback
 
 import pygame
 
@@ -35,6 +36,8 @@ class App:
         else:
             # real window: the GPU scales the stage to whatever size the window is
             self.stage = Display(fullscreen=self.profile.settings.get("fullscreen", False))
+            self.display = self.stage
+            self._check_layout(self.stage.window.size)
         self.display = self.stage if isinstance(self.stage, Display) else None
         self.clock = pygame.time.Clock()
         self.bg = gfx.Background()
@@ -46,6 +49,7 @@ class App:
         self.current_cls = None
         self.current_ladder = None
         self.touch = web.IS_WEB   # show on-screen keypads and buttons
+        self.awake = False   # keeping a phone's screen on (see _keep_awake)
         self.portrait = False
         if web.IS_WEB:   # before the first scene lays itself out
             self._check_large_text()
@@ -56,6 +60,8 @@ class App:
         else:
             self._set_language(language)
             self._show_initial_scene()
+        # If a rated puzzle was pending when the app last closed, count it as a miss now
+        self._apply_pending_rated_loss()
 
     @staticmethod
     def _set_language(language):
@@ -92,6 +98,8 @@ class App:
         return MenuScene(self) if self.profile.current else NameEntryScene(self)
 
     def to_menu(self):
+        # Quitting mid-puzzle in a rated set counts as a miss
+        self._record_pending_rated_loss_if_any()
         self.battery = None
         self.goto(self._menu())
 
@@ -156,6 +164,8 @@ class App:
         self.goto(cls(self, feedback=feedback))
 
     def restart_subtest(self):
+        # Restarting mid-puzzle in a rated set counts as a miss
+        self._record_pending_rated_loss_if_any()
         if self.current_cls:
             self.begin_subtest(self.current_cls, self.current_ladder)
 
@@ -194,10 +204,10 @@ class App:
             if b["pos"] < len(ORDER):
                 self.goto(IntroScene(self, ORDER[b["pos"]], battery_pos=b["pos"]))
             else:
-                indexes, fsiq = scoring.compute_indexes(b["scaled"])
-                self.profile.record_battery(b["scaled"], indexes, fsiq)
+                indexes, overall = scoring.compute_indexes(b["scaled"])
+                self.profile.record_battery(b["scaled"], indexes, overall)
                 self.battery = None
-                self.goto(BatteryResultScene(self, b["scaled"], b["raw"], indexes, fsiq))
+                self.goto(BatteryResultScene(self, b["scaled"], b["raw"], indexes, overall))
         else:
             self.goto(SubtestResultScene(self, type(sub), raw, scaled, best_before, details))
         self.online.backup()
@@ -241,6 +251,15 @@ class App:
             self.pause.update(dt)
         else:
             self.scene.update(dt)
+        self._keep_awake()
+
+    def _keep_awake(self):
+        """A phone mustn't dim and lock while a player is thinking over a puzzle: keep its screen on
+        during subtests and their briefings, and all through a full assessment."""
+        awake = self.battery is not None or isinstance(self.scene, (Subtest, IntroScene))
+        if awake != self.awake:
+            self.awake = awake
+            web.keep_awake(awake)
 
     def render(self):
         self.bg.draw(self.screen, self.t)
@@ -270,24 +289,45 @@ class App:
         # opened from then on make room for it; the open one fits it in as best it can.
         gfx.set_large_text(web.view_scale(T.FULL_W, T.FULL_H) < 0.75)
 
-    def _check_layout(self):
+    def _check_layout(self, window=None):
         """Use the compact layout (see theme.py) on pages too small for the full one and about the shape
-        of a phone. Which way round the phone is held doesn't matter, so turning it never switches
-        layouts; a page resized past the limit switches once the open screen can simply be rebuilt."""
-        w, h = web.view_size()
-        short, long = min(w, h), max(w, h)
-        want = short < 0.75 * T.FULL_H and long >= 1.7 * short
-        if want == T.compact:
+        of a phone, and a canvas as wide as the page's (or the ``window``'s) shape. Which way round the
+        phone is held doesn't matter, so turning it never changes the layout; a page resized past a
+        limit changes it once the open screen can simply be rebuilt."""
+        w, h = window or web.view_size()
+        short, long = max(1, min(w, h)), max(w, h)
+        want = window is None and short < 0.75 * T.FULL_H and long >= 1.7 * short   # (phones are in browsers)
+        aspect = long / short
+        if (want, T.canvas_width(want, aspect)) == (T.compact, T.W):
             return
         scene = getattr(self, "scene", None)
         if scene is not None and (self.pause or type(scene) not in (MenuScene, DisclaimerScene, SettingsScene, PlayersScene)):
             return
-        T.set_compact(want)
+        T.set_compact(want, aspect)
         if scene is not None:
-            self._fit_page()
+            if self.display:
+                self.display.update_size()
+            else:
+                self._fit_page()
             self.scene = type(scene)(self)
 
     async def run_async(self):
+        try:
+            await self._loop()
+        except Exception:
+            if not web.IS_WEB:
+                raise
+            await show_error(traceback.format_exc())   # rather than leave a browser page blank
+
+    def _check_speed(self, ms):
+        """Slow devices (older phones running the browser version) get a lighter background, so the
+        game itself keeps up."""
+        self.frame_ms = 0.9 * getattr(self, "frame_ms", ms) + 0.1 * ms
+        if web.IS_WEB and not gfx.low_power and self.t > 3 and self.frame_ms > 45:
+            gfx.low_power = True
+            print(f"Puzzleth: about {self.frame_ms:.0f} ms a frame, using the lighter background")
+
+    async def _loop(self):
         # yielding to the event loop every frame is what lets the game run inside a browser
         frame = 0
         # PUZZLETH_QUIT_AFTER=N: close after N frames (a smoke test of a packaged build)
@@ -295,13 +335,20 @@ class App:
         while self.running:
             if quit_after and frame >= quit_after:
                 break
-            dt = min(0.05, self.clock.tick(T.FPS) / 1000)
+            ms = self.clock.tick(T.FPS)
+            self._check_speed(ms)
+            real_dt = ms / 1000
+            dt = min(0.05, real_dt)
+            # Use unclamped wall-clock time for in-game timers; animations keep the small clamp
+            self.timer_dt = real_dt
             self.step(dt, pygame.event.get())
             if web.IS_WEB and frame % 30 == 0:
                 self.portrait = web.is_portrait()
                 self._check_large_text()
                 self._check_layout()
                 self._fit_page()
+            elif self.display and frame % 30 == 0:
+                self._check_layout(self.display.window.size)
             frame += 1
             if self.display:
                 self.display.update_size()
@@ -312,3 +359,61 @@ class App:
                 pygame.display.flip()
             await asyncio.sleep(0)
         pygame.quit()
+
+    # ------------------------------------------------------------ rated fairness
+    def _record_pending_rated_loss_if_any(self):
+        """If leaving a rated puzzle mid-item, record it as a miss."""
+        scene = getattr(self, "scene", None)
+        if isinstance(scene, Subtest) and getattr(scene, "ladder", None) and scene.ladder.kind == "rated":
+            if getattr(scene, "state", None) == "item":
+                try:
+                    scene.ladder.record(scene.cur, False)
+                    self.ladder_progress(scene)
+                    self.profile.clear_pending()
+                except Exception:
+                    pass
+
+    def _apply_pending_rated_loss(self):
+        """On startup, turn any pending rated puzzle into a recorded miss."""
+        pend = self.profile.pending_rated()
+        if not pend:
+            return
+        try:
+            from .subtests import BY_CODE
+            from .challenge import update, level_for, level_rating
+            code, level = pend["code"], pend["level"]
+            cls = BY_CODE.get(code)
+            if cls:
+                r = self.profile.rating(code) or {"rating": START_RATING, "played": 0}
+                # If the stored level is out of range, use the nominal one for the current rating
+                n_items, max_level = cls.n_items, cls.max_level
+                lv = level if 1 <= level <= max_level else level_for(r["rating"], n_items, max_level)
+                opp = level_rating(lv, n_items)
+                new = update(r["rating"], opp, False, r["played"])
+                self.profile.set_rating(code, new, r["played"] + 1)
+        finally:
+            self.profile.clear_pending()
+
+
+async def show_error(details):
+    """In a browser, say that the game stopped (and why, for a bug report) instead of a blank page."""
+    print(details)
+    last = details.strip().splitlines()[-1] if details.strip() else ""
+    while True:
+        try:
+            screen = pygame.display.get_surface()
+            if screen is not None:
+                screen.fill(T.BG)
+                w, h = screen.get_size()
+                y = h // 2 - 80
+                for text, size, color in (("Puzzleth ran into a problem on this device", 34, T.TEXT),
+                                          ("Reload the page to try again. If it keeps happening, please report it with "
+                                           "this message:", 18, T.MUTED), (last, 16, T.BAD)):
+                    for line in gfx.wrap(text, size, w - 80):
+                        gfx.text(screen, line, (w // 2, y), size, color, anchor="midtop", translate=False)
+                        y += T.font(size).get_linesize() + 4
+                    y += 16
+                pygame.display.flip()
+        except Exception:
+            pass
+        await asyncio.sleep(0.5)

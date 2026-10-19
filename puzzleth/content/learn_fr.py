@@ -3,7 +3,7 @@ from ..locales.fr import spacing
 
 EXPECT = [
     ("Avant la séance", [
-        "Une évaluation WAIS est une séance individuelle avec un psychologue ou un examinateur formé. Les dix "
+        "Une évaluation cognitive est une séance individuelle avec un psychologue ou un examinateur formé. Les "
         "épreuves principales durent en général entre une heure et une heure et demie, parfois dans le cadre "
         "d'un bilan plus long.",
         "Il n'y a rien à réviser et rien à apporter, sauf vos lunettes ou vos appareils auditifs si vous en "
@@ -43,8 +43,8 @@ EXPECT = [
         "Vous pouvez deviner, et vous pouvez aussi passer. On ne s'attend pas à ce que vous répondiez à tout.",
     ]),
     ("Après l'évaluation", [
-        "Vos réponses sont converties en notes standard pour chaque épreuve (de 1 à 19, moyenne 10), puis en "
-        "quatre indices et un QI total (moyenne 100).",
+        "Vos réponses sont comparées à celles d'un grand groupe de personnes de votre âge, puis converties en "
+        "scores pour chaque épreuve, pour chacun des quatre domaines et pour l'ensemble.",
         "Un bon compte rendu donne des intervalles, pas seulement des chiffres isolés, et situe les résultats par "
         "rapport à votre parcours, votre scolarité et la raison du bilan. Les chiffres ne sont qu'une pièce d'un "
         "tableau plus large.",
@@ -89,18 +89,18 @@ SUBTESTS = [
         "Recopier le plus vite possible les symboles associés à des chiffres, à l'aide d'une clé. Évalue la "
         "rapidité et la coordination visuo-motrice.",
     ]),
-    ("Les éditions", [
-        "Ce jeu suit la WAIS-IV (2008) : dix épreuves principales qui donnent quatre indices. La vraie WAIS-IV "
-        "compte aussi cinq épreuves complémentaires que l'examinateur peut ajouter ou utiliser en remplacement.",
-        "Une édition plus récente, la WAIS-5, est parue en 2024. Elle sépare le Raisonnement perceptif en "
-        "Visuospatial et Raisonnement fluide, et calcule le QI total à partir de moins d'épreuves. Beaucoup de "
-        "praticiens utilisent encore la WAIS-IV, et la séance elle-même se déroule à peu près de la même façon.",
-        "Les enfants passent un autre test, le WISC, qui fonctionne de manière très similaire.",
+    ("Les autres versions", [
+        "Ce jeu compte dix épreuves principales réparties en quatre domaines. Les vraies évaluations peuvent "
+        "aussi comporter des épreuves complémentaires que l'examinateur peut ajouter ou utiliser en remplacement.",
+        "Les évaluations sont révisées de temps en temps : les tâches sont mises à jour, les domaines peuvent être "
+        "découpés autrement, et les scores sont recalculés sur de nouveaux groupes de personnes. Quelle que soit "
+        "la version, la séance elle-même se déroule à peu près de la même façon.",
+        "Les enfants passent une version conçue pour leur âge, qui fonctionne de manière très similaire.",
     ]),
 ]
 
 INDEXES = [
-    ("Les quatre indices", [
+    ("Les quatre domaines", [
         "## Compréhension verbale  (Similitudes, Vocabulaire, Information)",
         "Raisonner avec des mots, et les connaissances acquises par le langage.",
         "## Raisonnement perceptif  (Cubes, Matrices, Puzzles visuels)",
@@ -109,32 +109,32 @@ INDEXES = [
         "Garder une information en tête quelques secondes tout en l'utilisant.",
         "## Vitesse de traitement  (Symboles, Code)",
         "La rapidité et la précision avec lesquelles vous réalisez des tâches visuelles simples.",
-        "Chaque indice est calculé à partir de ses épreuves, et le QI total à partir des dix.",
+        "Chaque domaine est calculé à partir de ses épreuves, et le résultat global à partir des dix.",
     ]),
 ]
 
 SCORES = [
     ("Comprendre les scores", [
-        "## De la note brute à la note standard",
-        "Les points obtenus à une épreuve sont comparés à ceux des personnes de votre âge et convertis en une "
-        "note standard de 1 à 19. 10 est la moyenne, et environ deux personnes sur trois obtiennent entre 7 et 13.",
-        "## Les indices et le QI total",
-        "Ils utilisent une autre échelle : 100 est la moyenne, et 15 points correspondent à un écart type. "
-        "Environ deux personnes sur trois obtiennent entre 85 et 115, et environ 2 sur 100 dépassent 130.",
+        "## Comparé aux personnes de votre âge",
+        "Les points obtenus à une épreuve sont comparés à ceux d'un grand groupe de personnes de votre âge. Un "
+        "score indique où vous vous situez parmi elles, pas combien de réponses étaient justes.",
+        "## Épreuves, domaines et ensemble",
+        "Chaque épreuve reçoit un score, chacun des quatre domaines en reçoit un à partir de ses épreuves, et un "
+        "résultat global les réunit tous. Environ deux personnes sur trois obtiennent un score proche de la "
+        "moyenne à chacun d'eux.",
         "## Les centiles",
         "Un centile de 75 signifie que vous avez fait mieux que 75 personnes de votre âge sur 100. Ce n'est pas "
         "un pourcentage de bonnes réponses.",
         "## Des intervalles, pas des points",
         "Tout test comporte une erreur de mesure : les vrais comptes rendus donnent donc un intervalle de "
-        "confiance, par exemple de 102 à 112. Quelques points d'écart entre deux scores ne veulent en général "
-        "rien dire.",
+        "confiance plutôt qu'un seul chiffre. Un petit écart entre deux scores ne veut en général rien dire.",
     ]),
     ("Les scores dans ce jeu", [
-        "## Scores de type test",
-        "L'évaluation complète et les épreuves de type WAIS affichent des notes standard, des indices et un score "
-        "global (l'équivalent du QI total dans ce jeu), pour que vous voyiez comment se construit un vrai compte "
-        "rendu. Les normes utilisées ont été inventées pour ce jeu : les chiffres ne mesurent donc que vos "
-        "propres progrès. Vous pouvez les masquer dans les paramètres.",
+        "## Les rangs",
+        "Les épreuves, les quatre domaines et l'évaluation complète reçoivent un rang de D à S : D, C, B, A, et "
+        "S pour les meilleurs des meilleurs. Le rang de l'évaluation complète est votre Rang global. Les "
+        "standards utilisés ont été inventés pour ce jeu : les rangs ne mesurent donc que vos propres progrès. "
+        "Vous pouvez les masquer dans les paramètres.",
         "## La cote des puzzles",
         "Les séries classées fonctionnent comme la cote Elo des problèmes d'échecs. Chaque puzzle a un niveau "
         "de difficulté, et votre cote monte quand vous en résolvez un et baisse quand vous en ratez un, "
@@ -148,28 +148,28 @@ SCORES = [
 
 MYTHS = [
     ("Mythes et réalités", [
-        "## « Le QI est fixé pour la vie. »",
+        "## « Votre score est fixé pour la vie. »",
         "Les scores des adultes sont assez stables, mais pas gravés dans le marbre. L'éducation, la santé et les "
         "circonstances de la vie jouent un rôle, et les scores peuvent évoluer au fil des années.",
-        "## « Les jeux d'entraînement cérébral augmentent le QI. »",
+        "## « Les jeux d'entraînement cérébral rendent plus intelligent. »",
         "L'entraînement vous rend meilleur aux tâches que vous pratiquez. De grandes synthèses ont trouvé peu de "
         "preuves que ces progrès se transfèrent à l'intelligence générale. Ce jeu vous rendra meilleur à ces "
         "puzzles. Il ne vous rendra pas plus intelligent.",
-        "## « Un test de QI en ligne m'a donné mon QI. »",
-        "Les vrais tests de QI sont étalonnés sur de grands échantillons choisis avec soin et passés dans des "
-        "conditions contrôlées. Ce n'est pas le cas des tests en ligne, ce jeu compris : leurs chiffres ne "
+        "## « Un test en ligne m'a donné mon vrai score. »",
+        "Les vraies évaluations sont étalonnées sur de grands échantillons choisis avec soin et passés dans des "
+        "conditions contrôlées. Ce n'est pas le cas des tests en ligne, ce jeu compris : leurs résultats ne "
         "peuvent pas être comparés à de vrais scores.",
     ]),
     ("Mythes et réalités  (suite)", [
-        "## « Le QI mesure votre valeur. »",
-        "Les tests de QI mesurent un ensemble précis de compétences de raisonnement, de mémoire et de rapidité. "
+        "## « Un score à un test mesure votre valeur. »",
+        "Ces tests mesurent un ensemble précis de compétences de raisonnement, de mémoire et de rapidité. "
         "Ils ne disent rien de la gentillesse, de la créativité, de la détermination ni de la plupart des choses "
         "qui font qu'une vie se passe bien.",
-        "## « Un grand écart entre mes indices veut dire que quelque chose ne va pas. »",
-        "Des écarts de 10 points ou plus entre indices sont courants dans la population générale. Seul un "
+        "## « Un grand écart entre mes domaines veut dire que quelque chose ne va pas. »",
+        "Des écarts nets entre domaines sont courants dans la population générale. Seul un "
         "professionnel qualifié, qui considère l'ensemble de la situation, peut dire si un profil est significatif.",
         "## « Les scores augmentent de génération en génération. »",
-        "C'est en partie vrai. Les scores moyens ont augmenté d'environ 3 points par décennie au cours du "
+        "C'est en partie vrai. Les scores moyens ont augmenté régulièrement au cours du "
         "XXe siècle (l'effet Flynn). C'est l'une des raisons pour lesquelles les tests sont réétalonnés "
         "régulièrement.",
     ]),
@@ -177,26 +177,25 @@ MYTHS = [
 
 ABOUT = [
     ("À propos de Puzzleth", [
-        "Puzzleth est un jeu d'entraînement gratuit et open source, inspiré de la structure et des règles de "
-        "passation de la WAIS-IV. Chaque puzzle est généré par le jeu. Aucun item du vrai test n'est utilisé, et "
-        "le jeu n'est ni affilié à l'éditeur du test ni approuvé par celui-ci.",
-        "## Ce n'est pas un vrai test de QI",
-        "Ses scores reposent sur des normes approximatives inventées pour ce jeu. Ils ne peuvent pas être "
-        "comparés à un vrai QI, ne permettent aucun diagnostic et ne doivent pas servir à des décisions "
+        "Puzzleth est un jeu d'entraînement inspiré de la structure et des règles de passation des vraies "
+        "évaluations cognitives individuelles. Chaque puzzle est généré par le jeu. Aucun item d'un vrai test "
+        "n'est utilisé, et le jeu n'est affilié à aucun éditeur de tests ni approuvé par l'un d'eux.",
+        "## Ce n'est pas un test psychologique",
+        "Ses rangs reposent sur des standards approximatifs inventés pour ce jeu. Ils ne peuvent pas être "
+        "comparés aux résultats d'une vraie évaluation, ne permettent aucun diagnostic et ne doivent pas servir à des décisions "
         "scolaires, professionnelles, juridiques ou médicales.",
         "## À qui s'adresse-t-il ?",
         "Aux personnes inquiètes avant une évaluation qui veulent savoir à quoi s'attendre. À celles qui aiment "
-        "les puzzles difficiles. Et à toute personne curieuse de savoir comment fonctionnent les tests "
-        "d'intelligence.",
+        "les puzzles difficiles. Et à toute personne curieuse de savoir comment fonctionnent ces évaluations.",
     ]),
 ]
 
 TOPICS = [
     ("expect", "À quoi s'attendre", EXPECT),
     ("subtests", "Les dix épreuves", SUBTESTS),
-    ("indexes", "Les quatre indices", INDEXES),
+    ("indexes", "Les quatre domaines", INDEXES),
     ("scores", "Comprendre les scores", SCORES),
-    ("myths", "Mythes sur le QI", MYTHS),
+    ("myths", "Mythes et réalités", MYTHS),
     ("about", "À propos du jeu", ABOUT),
 ]
 TOPICS = [(key, spacing(title), [(spacing(t), [spacing(p) for p in paras]) for t, paras in pages])

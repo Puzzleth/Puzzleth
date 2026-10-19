@@ -128,7 +128,8 @@ class DigitEntry:
             sound.play("key")
             return True
         ch = e.unicode
-        if ch and ch.isdigit() and len(self.value) < self.max_len:
+        # Only accept ASCII decimal digits; reject other Unicode digits like '²'
+        if ch and ch in "0123456789" and len(self.value) < self.max_len:
             self.value += ch
             sound.play("key")
             return True

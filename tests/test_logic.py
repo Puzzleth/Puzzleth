@@ -54,7 +54,7 @@ class Localization(unittest.TestCase):
     def test_game_text_helpers_use_the_active_language(self):
         from puzzleth import gfx
         i18n.set_language("fr")
-        self.assertEqual(gfx.wrap("This is not an actual IQ test", 20, 800), ["Ceci n'est pas un vrai test de QI"])
+        self.assertEqual(gfx.wrap("This is not a psychological test", 20, 800), ["Ceci n'est pas un test psychologique"])
         self.assertEqual(i18n.f("Answer: {answer}", answer=42), "Réponse : 42")
         self.assertEqual(i18n.upper("Similarities"), "SIMILITUDES")
         self.assertEqual(i18n.abbr("VCI"), "ICV")
@@ -102,8 +102,7 @@ class Localization(unittest.TestCase):
         texts = list(theme.INDEX_NAMES.values())
         for cls in ORDER:
             texts += [cls.name, cls.measures] + list(cls.rules) + list(cls.controls)
-        texts += [scoring.classification(v) for v in range(40, 161)]
-        texts += [scoring.scaled_label(s) for s in range(1, 20)]
+        texts += [scoring.grade_name(g) for g in scoring.GRADES]
         texts += [t for t in arithmetic.ITEMS]
         from puzzleth.locales import fr, ro
         for language, catalog in (("ro", ro.STRINGS), ("fr", fr.STRINGS)):
@@ -233,7 +232,7 @@ class Localization(unittest.TestCase):
                     os.environ["PUZZLETH_HOME"] = previous
 
     def test_version_label(self):
-        self.assertEqual(version_label(), "v0.0.2 PRE-ALPHA")
+        self.assertEqual(version_label(), "v0.0.4 PRE-ALPHA")
 
 
 class FakeApp:
@@ -358,15 +357,43 @@ class Scoring(unittest.TestCase):
         self.assertTrue(118 < fs < 124)
         self.assertEqual(scoring.compute_indexes({"SI": 10})[1], None)
 
-    def test_percentile_and_labels(self):
-        self.assertAlmostEqual(scoring.percentile(100), 50, places=6)
-        self.assertAlmostEqual(scoring.percentile(115), 84.13, places=1)
-        self.assertAlmostEqual(scoring.scaled_percentile(13), 84.13, places=1)
-        self.assertEqual(scoring.classification(130), "Very Superior")
-        self.assertEqual(scoring.classification(129), "Superior")
-        self.assertEqual(scoring.classification(90), "Average")
-        self.assertEqual(scoring.classification(89), "Low Average")
-        self.assertEqual(scoring.classification(69), "Extremely Low")
+    def test_grades(self):
+        self.assertEqual(scoring.GRADES, ("D", "C", "B", "A", "S"))
+        # subtests: S from 16 skill points, A from 13, B from 9 (around average), C from 6
+        self.assertEqual([scoring.grade(s) for s in range(1, 20)], list("DDDDDCCCBBBBAAASSSS"))
+        # areas and overall, on the same footing: S from 130, A from 115, B from 95, C from 80
+        self.assertEqual(scoring.composite_grade(130), "S")
+        self.assertEqual(scoring.composite_grade(129), "A")
+        self.assertEqual(scoring.composite_grade(115), "A")
+        self.assertEqual(scoring.composite_grade(100), "B")
+        self.assertEqual(scoring.composite_grade(95), "B")
+        self.assertEqual(scoring.composite_grade(94), "C")
+        self.assertEqual(scoring.composite_grade(80), "C")
+        self.assertEqual(scoring.composite_grade(79), "D")
+        self.assertEqual(scoring.composite_grade(40), "D")
+        ranks = [scoring.grade_rank(scoring.composite_grade(v)) for v in range(40, 161)]
+        self.assertEqual(ranks, sorted(ranks))
+        for g in scoring.GRADES:
+            self.assertTrue(scoring.grade_name(g))
+
+    def test_no_test_publisher_names_in_the_game(self):
+        """No IQ or WAIS wording anywhere a player can read it, in any language."""
+        from puzzleth import theme
+        from puzzleth.content import learn
+        from puzzleth.locales import fr, ro
+        texts = []
+
+        def collect(x):
+            if isinstance(x, str):
+                texts.append(x)
+            elif isinstance(x, (list, tuple, dict)):
+                for y in (x.items() if isinstance(x, dict) else x):
+                    collect(y)
+        collect([ro.STRINGS, fr.STRINGS, theme.INDEX_NAMES, [learn.topics(lang) for lang in ("en", "ro", "fr")]])
+        for cls in ORDER:
+            collect([cls.name, cls.measures, list(cls.rules), list(cls.controls)])
+        for text in texts:
+            self.assertIsNone(re.search(r"\bIQ\b|\bQI\b|WAIS|WISC|Full Scale", text), text)
 
 
 class BlockDesignTests(unittest.TestCase):
@@ -1245,6 +1272,55 @@ class LargeTextTests(unittest.TestCase):
         self.assertEqual(gfx.fit_size(17, lambda k: False), 17)
 
 
+class DeviceTests(unittest.TestCase):
+    def test_screen_stays_on_during_puzzles(self):
+        from unittest import mock
+        from puzzleth import web
+        from puzzleth.app import App
+        from puzzleth.scenes import IntroScene, MenuScene
+        app = App(pygame.display.get_surface())
+        calls = []
+        with mock.patch.object(web, "keep_awake", side_effect=calls.append):
+            app.scene = MenuScene(app)
+            app.step(1 / 60, [])
+            app.scene = IntroScene(app, ORDER[0])
+            app.step(1 / 60, [])
+            app.scene = MatrixReasoning(app)
+            app.step(1 / 60, [])
+            app.scene = MenuScene(app)
+            app.step(1 / 60, [])
+        self.assertEqual(calls, [True, False])   # only when it changes
+
+    def test_slow_devices_get_a_lighter_background(self):
+        from unittest import mock
+        from puzzleth import gfx, web
+        from puzzleth.app import App
+        app = App(pygame.display.get_surface())
+        try:
+            with mock.patch.object(web, "IS_WEB", True):
+                app.t = 5
+                for _ in range(60):
+                    app._check_speed(17)
+                self.assertFalse(gfx.low_power)
+                for _ in range(60):
+                    app._check_speed(90)
+                self.assertTrue(gfx.low_power)
+            app.render()
+        finally:
+            gfx.low_power = False
+
+    def test_rings_are_drawn_once(self):
+        from puzzleth import gfx
+        surf = pygame.Surface((300, 300))
+        gfx._ring_cache.clear()
+        for _ in range(3):
+            gfx.pips(surf, (150, 150), 100, 12, 19, 7, (255, 0, 0), ghost=9)
+            gfx.ring(surf, (150, 150), 60, 8, 0.4, (0, 255, 0))
+        self.assertEqual(len(gfx._ring_cache), 2)
+        self.assertEqual(surf.get_at((166, 51))[:3], (255, 0, 0))   # the middle of the first pip
+        self.assertEqual(surf.get_at((210, 150))[:3], (0, 255, 0))  # a quarter of the way round
+
+
 class StageTests(unittest.TestCase):
     def test_stage_fills_any_screen(self):
         from puzzleth.display import Stage, stage_size
@@ -1310,8 +1386,29 @@ class CompactLayoutTests(unittest.TestCase):
             with mock.patch.object(web, "view_size", return_value=size), mock.patch.object(app, "_fit_page"):
                 app._check_layout()
             self.assertEqual(theme.compact, compact, size)
-            self.assertEqual((theme.W, theme.H), (1280, 600) if compact else (1422, 800))
+            self.assertEqual(theme.H, 600 if compact else 800)
+            # as wide as the page's shape, so that the screen is filled to its edges
+            aspect = max(size) / min(size)
+            self.assertEqual(theme.W, max(1280 if compact else 1422, round(theme.H * aspect)), size)
         self.assertIsInstance(app.scene, MenuScene)   # rebuilt for the new layout
+        self.assertEqual(app.scene.quit_btn.rect.right, theme.W - 40)   # the corner buttons are in the corner
+
+    def test_canvas_width_follows_the_screen(self):
+        from puzzleth import theme
+        from puzzleth.display import stage_size
+        self.assertEqual(theme.canvas_width(True), 1280)
+        self.assertEqual(theme.canvas_width(True, 2688 / 1216), 1326)   # a RedMagic 11 Pro: no sides left over
+        self.assertEqual(theme.canvas_width(True, 4.0), 1440)           # no wider than 2.4 : 1
+        self.assertEqual(theme.canvas_width(False, 16 / 9), 1422)
+        self.assertEqual(theme.canvas_width(False, 21 / 9), 1867)       # an ultrawide monitor
+        self.assertEqual(theme.canvas_width(False, 4 / 3), 1422)        # taller screens keep the full width
+        try:
+            theme.set_compact(True, 2688 / 1216)
+            w, h = stage_size(2688 // 3, 1216 // 3)
+            self.assertLessEqual(w - theme.W, 2)   # the canvas is (all but) the whole stage
+            self.assertEqual(h, theme.H)
+        finally:
+            theme.set_compact(False)
 
     def test_layout_waits_for_a_subtest_to_end(self):
         from unittest import mock

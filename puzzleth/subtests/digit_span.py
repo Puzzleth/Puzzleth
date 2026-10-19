@@ -13,7 +13,7 @@ TASKS = [
 ]
 
 SHOW = 0.75   # seconds each digit is visible
-GAP = 0.25    # blank between digits -> one digit per second, as on the WAIS
+GAP = 0.25    # blank between digits -> one digit per second, as on the real test
 
 
 class DigitSpan(Subtest):
@@ -63,7 +63,7 @@ class DigitSpan(Subtest):
         n = self._length()
         name = self.task[0]
         if name == "Sequencing":
-            # WAIS-IV sequencing items may repeat digits
+            # real sequencing items may repeat digits
             seq = [self.rng.randint(1, 9) for _ in range(n)]
             for i in range(1, n):
                 while seq[i] == seq[i - 1]:
@@ -79,7 +79,11 @@ class DigitSpan(Subtest):
         self.fb = None
 
     def _submit(self):
-        ok = [int(c) for c in self.entry.value] == self.target
+        try:
+            typed = [int(c) for c in self.entry.value]
+        except ValueError:
+            typed = []
+        ok = typed == self.target
         if self.item_i < 0:
             self.fb = {"ok": ok, "sample": True}
         else:

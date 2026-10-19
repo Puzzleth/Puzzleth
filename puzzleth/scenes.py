@@ -39,8 +39,12 @@ def _tooltip(surf, pos, title, lines, color):
         gfx.text(surf, line, (x + 16, y + 40 + i * lh), 15, col)
 
 
+def _grade_line(letter):
+    return i18n.f("Grade {grade}  ·  {label}", grade=letter, label=i18n._(scoring.grade_name(letter)))
+
+
 def tree_tooltip(
-    surf, key, pos, scaled, raw, best, attempts, indexes, fsiq, hide=False, ratings=None
+    surf, key, pos, scaled, raw, best, attempts, indexes, overall, hide=False, ratings=None
 ):
     ratings = ratings or {}
     if key in BY_CODE:
@@ -52,20 +56,14 @@ def tree_tooltip(
         if s and hide:
             lines.append(i18n.f("Measured  ·  scores hidden  ·  {attempts}", attempts=tries))
         elif s:
-            lines.append(i18n.f("Scaled score {score} / 19  ·  {label}", score=s,
-                                label=i18n._(scoring.scaled_label(s))))
-            lines.append(
-                i18n.f("Percentile ≈ {percentile}", percentile=round(scoring.scaled_percentile(s)))
-                + (
-                    i18n.f("  ·  raw {raw} / {max}", raw=raw[key], max=cls.max_raw)
-                    if raw.get(key) is not None
-                    else ""
-                )
-            )
+            lines.append(_grade_line(scoring.grade(s)))
+            lines.append(i18n.n(s, "{n} skill point of 19", "{n} skill points of 19") + (
+                i18n.f("  ·  raw {raw} / {max}", raw=raw[key], max=cls.max_raw) if raw.get(key) is not None else ""
+            ))
         else:
             lines.append("Not yet measured")
         if best.get(key) and not hide:
-            lines.append(i18n.f("Personal best {score}  ·  {attempts}", score=best[key], attempts=tries))
+            lines.append(i18n.f("Personal best {grade}  ·  {attempts}", grade=scoring.grade(best[key]), attempts=tries))
         if getattr(cls, "challenge", False):
             r = ratings.get(key)
             lines.append(
@@ -81,27 +79,20 @@ def tree_tooltip(
         if key in indexes and hide:
             lines.append("Measured  ·  scores hidden")
         elif key in indexes:
-            v = indexes[key]
-            lines += [
-                i18n.f("Index score {score}  ·  {label}", score=v, label=i18n._(scoring.classification(v))),
-                i18n.f("Percentile ≈ {percentile}", percentile=round(scoring.percentile(v))),
-            ]
+            lines.append(_grade_line(scoring.composite_grade(indexes[key])))
         else:
-            lines.append("Complete all of its subtests to compute it")
+            lines.append("Complete all of its subtests to grade it")
         _tooltip(surf, pos, T.INDEX_NAMES[key], lines, col)
-    elif key == "FSIQ":
-        lines = ["Combines all ten core subtests"]
-        if fsiq and hide:
+    elif key == "GS":
+        lines = ["Combines all ten subtests"]
+        if overall and hide:
             lines.append("Measured  ·  scores hidden")
-        elif fsiq:
-            lines += [
-                f"{fsiq}  ·  {i18n._(scoring.classification(fsiq))}",
-                i18n.f("Percentile ≈ {percentile}", percentile=round(scoring.percentile(fsiq))),
-                "Training estimate, not a real IQ",
-            ]
+        elif overall:
+            lines += [_grade_line(scoring.composite_grade(overall)), "Grades run from D up to S",
+                      "A training estimate, not a clinical result"]
         else:
-            lines.append("Take the full assessment to compute it")
-        _tooltip(surf, pos, "Full Scale Score", lines, T.GOLD)
+            lines.append("Take the full assessment to grade it")
+        _tooltip(surf, pos, "Grade Score", lines, T.GOLD)
 
 
 class Scene:
@@ -127,12 +118,12 @@ class Scene:
 
 
 DISCLAIMER = [
-    "Puzzleth is a training game modelled on the structure and rules of the WAIS-IV. It is not "
-    "the WAIS, uses none of its items, and is not affiliated with or endorsed by its publisher.",
-    "Scores come from approximate norms made up for this game, not from a standardised sample of people. "
-    "The scores shown here cannot be compared with a real IQ score.",
+    "Puzzleth is a training game modelled on the structure and rules of real one-to-one cognitive "
+    "assessments. It uses none of their items and is not affiliated with or endorsed by any test publisher.",
+    "Its grades come from rough standards made up for this game, not from a standardised sample of people. "
+    "They cannot be compared with the results of a real assessment.",
     "It cannot diagnose anything and must not be used for school, work, legal or medical decisions. "
-    "Only a standardised test given by a qualified psychologist produces a real IQ.",
+    "Only a standardised assessment given by a qualified psychologist can do that.",
     "Practising test formats can raise scores on a real test. If you take a clinical assessment, tell "
     "the examiner you have practised.",
 ]
@@ -222,7 +213,7 @@ class DisclaimerScene(Scene):
         )
         gfx.text(
             surf,
-            "This is not an actual IQ test",
+            "This is not a psychological test",
             (p.centerx, p.y + 78),
             34,
             T.TEXT,
@@ -372,7 +363,7 @@ class MenuScene(Scene):
         self.raw = {c: p.last_raw(c) for c in BY_CODE}
         self.best = {c: p.best_scaled(c) for c in BY_CODE}
         self.attempts = {c: p.attempts(c) for c in BY_CODE}
-        self.indexes, self.fsiq = scoring.compute_indexes(self.scaled)
+        self.indexes, self.overall = scoring.compute_indexes(self.scaled)
         self.ratings = {c: p.rating(c) for c in BY_CODE if p.rating(c)}
         today = datetime.date.today()
         done = p.daily_result(today)
@@ -410,18 +401,18 @@ class MenuScene(Scene):
             gfx.text(surf, line, (42, 64), gfx.fit_width(line, 15, self.begin.rect.x - 60), T.DIM)
         else:
             gfx.text(surf, "PUZZLETH", (40, 30), 34, T.TEXT, bold=True)
-            gfx.text(surf, "WAIS-style cognitive training", (42, 74), 17, T.MUTED)
+            gfx.text(surf, "Cognitive puzzle training", (42, 74), 17, T.MUTED)
             gfx.text(surf, line, (42, 100), 15, T.DIM)
         hide = not self.app.profile.settings.get("show_scores", True)
         data = {
             "scaled": self.scaled,
             "best": self.best,
             "indexes": self.indexes,
-            "fsiq": self.fsiq,
+            "overall": self.overall,
             "hide": hide,
         }
         self.tree.draw(surf, data, self.t, None, self.hover)
-        footer = "Not an actual IQ test. Scores are training estimates, not clinical results."
+        footer = "Not a psychological test. Grades are training estimates, not clinical results."
         gfx.text(
             surf,
             footer,
@@ -444,7 +435,7 @@ class MenuScene(Scene):
                 self.best,
                 self.attempts,
                 self.indexes,
-                self.fsiq,
+                self.overall,
                 hide,
                 self.ratings,
             )
@@ -1062,20 +1053,20 @@ class SubtestResultScene(Scene):
         gfx.glow(surf, c, 260, col, 0.2 + 0.02 * filled)
         gfx.circle(surf, c, 112, gfx.lerp_color(T.PANEL, col, 0.12))
         gfx.pips(surf, c, 140, 18, 19, filled, col, ghost=self.best_before)
+        letter = scoring.grade(self.scaled)
+        done = self.t > 0.4 + self.scaled / 14   # the ring has filled
+        if done:
+            appear = gfx.ease_out((self.t - 0.4 - self.scaled / 14) / 0.3)
+            gfx.grade_badge(surf, letter, (c[0], c[1] - 14), 96, self.t, alpha=255 * appear)
         gfx.text(
-            surf, str(filled), (c[0], c[1] - 14), 92, T.TEXT, bold=True, anchor="center"
+            surf, "GRADE", (c[0], c[1] + 52), 13, col, bold=True, anchor="center"
         )
-        gfx.text(
-            surf, "SCALED SCORE", (c[0], c[1] + 48), 13, col, bold=True, anchor="center"
-        )
-        if self.t > 0.4 + self.scaled / 14:
+        if done:
             x, y = info
             dy = (50, 94, 134) if T.compact else (42, 78, 106)   # (large text needs the room)
-            label = scoring.scaled_label(self.scaled)
-            gfx.text(surf, label, (x, y), 28, T.TEXT, bold=True, anchor="center")
-            pct = scoring.scaled_percentile(self.scaled)
-            line = i18n.f("Raw {raw} / {max}   ·   ≈ {percentile}th percentile   ·   mean is 10, SD 3",
-                          raw=self.raw, max=cls.max_raw, percentile=round(pct))
+            gfx.text(surf, scoring.grade_name(letter), (x, y), 28, T.TEXT, bold=True, anchor="center")
+            line = i18n.f("Raw {raw} / {max}", raw=self.raw, max=cls.max_raw) + "   ·   " + \
+                i18n.n(self.scaled, "{n} skill point of 19", "{n} skill points of 19")
             gfx.text(surf, line, (x, y + dy[0]), 18, T.MUTED, anchor="center")
             if self.scaled > self.best_before > 0:
                 gfx.text(
@@ -1141,7 +1132,7 @@ class SubtestResultScene(Scene):
 
 
 class BatteryResultScene(Scene):
-    def __init__(self, app, scaled, raw, indexes, fsiq):
+    def __init__(self, app, scaled, raw, indexes, overall):
         super().__init__(app)
         sound.play("complete")
         # compact: a tree without names, so that it fits beside the panel
@@ -1149,7 +1140,7 @@ class BatteryResultScene(Scene):
         self.scaled = scaled
         self.raw = raw
         self.indexes = indexes
-        self.fsiq = fsiq
+        self.overall = overall
         self.best = {c: app.profile.best_scaled(c) for c in BY_CODE}
         self.attempts = {c: app.profile.attempts(c) for c in BY_CODE}
         self.hover = None
@@ -1186,7 +1177,7 @@ class BatteryResultScene(Scene):
             "scaled": self.scaled,
             "best": self.best,
             "indexes": self.indexes,
-            "fsiq": self.fsiq,
+            "overall": self.overall,
             "hide": hide,
         }
         self.tree.draw(surf, data, self.t, self.t, self.hover)
@@ -1234,25 +1225,26 @@ class BatteryResultScene(Scene):
             gfx.panel(surf, p, T.PANEL, T.BORDER, radius=18, alpha=int(235 * a))
             x, y = p.x + 24, p.y + 22
             gfx.text(
-                surf, "FULL SCALE SCORE", (x, y), 13, T.GOLD, bold=True, alpha=255 * a
+                surf, "GRADE SCORE", (x, y), 13, T.GOLD, bold=True, alpha=255 * a
             )
-            gfx.text(
-                surf, str(self.fsiq), (x, y + 18), 64, T.TEXT, bold=True, alpha=255 * a
-            )
+            letter = scoring.composite_grade(self.overall)
+            badge = gfx.grade_badge(surf, letter, (x + 44, y + 62), 76, self.t, alpha=255 * a)
+            name = scoring.grade_name(letter)
             gfx.text(
                 surf,
-                i18n._(scoring.classification(self.fsiq)),
-                (x, y + 96),
-                20,
-                T.GOLD,
+                name,
+                (badge.right + 12, y + 62),
+                gfx.fit_width(name, 20, p.right - 24 - badge.right - 12, bold=True),
+                T.GRADE_COLORS[letter],
                 bold=True,
+                anchor="midleft",
                 alpha=255 * a,
             )
             gfx.text(
                 surf,
-                i18n.f("≈ {percentile}th percentile", percentile=i18n.decimal(scoring.percentile(self.fsiq))),
-                (x, y + 96 + max(28, T.font(20, True).get_linesize())),
-                16,
+                "Grades run from D up to S",
+                (x, y + 120),
+                gfx.fit_width("Grades run from D up to S", 15, p.w - 48),
                 T.MUTED,
                 alpha=255 * a,
             )
@@ -1264,17 +1256,9 @@ class BatteryResultScene(Scene):
                 gfx.text(
                     surf, name, (x, y), gfx.fit_width(name, 15, p.w - 108), T.TEXT, alpha=255 * a
                 )
-                gfx.text(
-                    surf,
-                    str(v),
-                    (p.right - 24, y),
-                    17,
-                    col,
-                    bold=True,
-                    anchor="topright",
-                    alpha=255 * a,
-                )
-                bar = pygame.Rect(x, y + max(24, T.font(17, True).get_linesize()), p.w - 48, 6)
+                gfx.grade_badge(surf, scoring.composite_grade(v), (p.right - 40, y + 18), 24, self.t,
+                                alpha=255 * a)
+                bar = pygame.Rect(x, y + max(24, T.font(17, True).get_linesize()), p.w - 90, 6)   # clear of the grade
                 pygame.draw.rect(surf, T.TRACK, bar, border_radius=3)
                 pygame.draw.rect(
                     surf,
@@ -1289,7 +1273,7 @@ class BatteryResultScene(Scene):
                 y += row
             gfx.text(
                 surf,
-                "NOT AN ACTUAL IQ TEST",
+                "NOT A PSYCHOLOGICAL TEST",
                 (x, y + 6),
                 13,
                 T.PARTIAL,
@@ -1297,8 +1281,8 @@ class BatteryResultScene(Scene):
                 alpha=255 * a,
             )
             note = (
-                "Estimates use approximate norms made up for this game. They show trends in "
-                "your training, not a real IQ."
+                "Grades use rough standards made up for this game. They show trends in your "
+                "training, nothing more."
             )
             note_y = y + 6 + max(22, T.font(13, True).get_linesize())
             gfx.text_block(
@@ -1321,7 +1305,7 @@ class BatteryResultScene(Scene):
                 self.best,
                 self.attempts,
                 self.indexes,
-                self.fsiq,
+                self.overall,
                 hide,
             )
         if not self.tree.finished(self.t):
@@ -1363,7 +1347,8 @@ class PauseOverlay:
             b.update(dt)
 
     def draw(self, surf):
-        gfx.overlay(surf, T.BG, 200)
+        # Opaque cover: the puzzle underneath must not remain readable while paused
+        gfx.overlay(surf, T.BG, 255)
         gfx.text(
             surf, "Paused", (T.W // 2, self.top), 44, T.TEXT, bold=True, anchor="center"
         )
@@ -1888,7 +1873,7 @@ class RecoveryCodeScene(Scene):
 
 
 class LearnScene(Scene):
-    """How the WAIS works, what a session is like, how to read scores. With ``then`` it shows one
+    """How cognitive assessments work, what a session is like, how to read scores. With ``then`` it shows one
     topic as a walkthrough whose last page continues to ``then``."""
 
     def __init__(self, app, topic=None, then=None):
@@ -2076,7 +2061,7 @@ class LearnScene(Scene):
             gfx.text(surf, "LEARN", (40, top), 34, T.TEXT, bold=True)
             gfx.text(
                 surf,
-                "How the WAIS works, what a session is like, and how to read the scores",
+                "How assessments work, what a session is like, and how to read the scores",
                 (42, top + 44),
                 17,
                 T.MUTED,
@@ -2132,9 +2117,9 @@ class SettingsScene(Scene):
                 ("On", "Off"),
             ),
             (
-                "Test-style scores",
-                "Show scaled scores, index scores and the Full Scale Score. Hide them to practise without a number. "
-                "Puzzle ratings and daily results still show.",
+                "Grades",
+                "Show the D to S grades of subtests, areas and the overall Grade Score. Hide them to practise "
+                "without a grade. Puzzle ratings and daily results still show.",
                 lambda: s.get("show_scores", True),
                 lambda: self._flip("show_scores"),
                 ("Shown", "Hidden"),

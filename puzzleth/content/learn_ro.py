@@ -2,7 +2,7 @@
 
 EXPECT = [
     ("Înainte de ședință", [
-        "O evaluare WAIS este o ședință individuală cu un psiholog sau cu un examinator instruit. Cele zece probe "
+        "O evaluare cognitivă este o ședință individuală cu un psiholog sau cu un examinator instruit. Probele "
         "de bază durează de obicei între o oră și o oră și jumătate, uneori ca parte a unei evaluări mai lungi.",
         "Nu ai nimic de învățat și nimic de adus, în afară de ochelari sau proteză auditivă, dacă le folosești. "
         "Somnul, mâncarea și medicamentele pe care le iei de obicei contează mai mult decât orice pregătire.",
@@ -39,8 +39,8 @@ EXPECT = [
         "Ai voie să ghicești și ai voie să treci peste. Nu se așteaptă să răspunzi la tot.",
     ]),
     ("După aceea", [
-        "Răspunsurile tale sunt transformate în scoruri standard pentru fiecare probă (de la 1 la 19, media 10), "
-        "apoi în patru scoruri de indice și un IQ total (media 100).",
+        "Răspunsurile tale sunt comparate cu cele ale unui grup mare de persoane de vârsta ta și transformate în "
+        "scoruri pentru fiecare probă, pentru fiecare dintre cele patru domenii și pe ansamblu.",
         "Un raport bun dă intervale, nu doar numere izolate, și pune scorurile în contextul istoricului tău, al "
         "educației și al motivului pentru care ai fost evaluat. Cifrele sunt o piesă dintr-un tablou mai mare.",
         "Rezultatele inegale sunt normale. Majoritatea oamenilor au scoruri vizibil mai mari în unele domenii "
@@ -84,18 +84,18 @@ SUBTESTS = [
         "Copierea cât mai rapidă a simbolurilor care corespund unor cifre, după o cheie. Urmărește viteza și "
         "coordonarea vizual-motorie.",
     ]),
-    ("Ediții", [
-        "Acest joc urmează WAIS-IV (2008): zece probe de bază care dau patru scoruri de indice. WAIS-IV are și "
-        "cinci probe suplimentare, pe care examinatorul le poate adăuga sau folosi ca înlocuitori.",
-        "O ediție mai nouă, WAIS-5, a apărut în 2024. Ea împarte Raționamentul perceptiv în Vizual-spațial și "
-        "Raționament fluid și calculează IQ-ul total din mai puține probe. Multe cabinete folosesc încă WAIS-IV, "
-        "iar ședința în sine se desfășoară cam la fel.",
-        "Copiii sunt evaluați cu un alt test, WISC, care funcționează foarte asemănător.",
+    ("Alte versiuni", [
+        "Acest joc are zece probe de bază, grupate în patru domenii. Evaluările reale pot avea și probe "
+        "suplimentare, pe care examinatorul le poate adăuga sau folosi ca înlocuitori.",
+        "Evaluările sunt revizuite din când în când: sarcinile sunt actualizate, domeniile pot fi împărțite altfel, "
+        "iar scorurile sunt calculate din nou pe grupuri noi de oameni. Indiferent de versiune, ședința în sine se "
+        "desfășoară cam la fel.",
+        "Copiii sunt evaluați cu o versiune făcută pentru vârsta lor, care funcționează foarte asemănător.",
     ]),
 ]
 
 INDEXES = [
-    ("Cele patru scoruri de indice", [
+    ("Cele patru domenii", [
         "## Comprehensiune verbală  (Asemănări, Vocabular, Informații)",
         "Raționamentul cu ajutorul cuvintelor și cunoștințele acumulate prin limbaj.",
         "## Raționament perceptiv  (Cuburi, Matrice, Puzzle vizual)",
@@ -104,31 +104,31 @@ INDEXES = [
         "Păstrarea informației în minte câteva secunde, în timp ce faci ceva cu ea.",
         "## Viteză de procesare  (Căutare de simboluri, Codare)",
         "Cât de repede și de corect poți îndeplini sarcini vizuale simple.",
-        "Fiecare indice se calculează din probele sale, iar IQ-ul total din toate cele zece.",
+        "Fiecare domeniu se calculează din probele sale, iar rezultatul general din toate cele zece.",
     ]),
 ]
 
 SCORES = [
     ("Cum funcționează scorurile", [
-        "## De la scorul brut la scorul standard",
-        "Punctele obținute la o probă sunt comparate cu cele ale persoanelor de vârsta ta și transformate într-un "
-        "scor standard de la 1 la 19. 10 este media, iar cam doi din trei oameni obțin între 7 și 13.",
-        "## Scorurile de indice și IQ-ul total",
-        "Acestea folosesc altă scală: 100 este media, iar fiecare 15 puncte înseamnă o abatere standard. Cam doi "
-        "din trei oameni obțin între 85 și 115, iar cam 2 din 100 obțin peste 130.",
+        "## Comparat cu persoane de vârsta ta",
+        "Punctele obținute la o probă sunt comparate cu cele ale unui grup mare de persoane de vârsta ta. Un scor "
+        "arată unde te situezi între ele, nu câte răspunsuri ai dat corect.",
+        "## Probe, domenii și ansamblu",
+        "Fiecare probă primește un scor, fiecare dintre cele patru domenii primește unul din probele sale, iar un "
+        "rezultat general le reunește pe toate. Cam doi din trei oameni obțin un scor apropiat de medie la fiecare.",
         "## Percentilele",
         "Percentila 75 înseamnă că ai obținut un scor mai mare decât 75 din 100 de persoane de vârsta ta. Nu este "
         "procentul de răspunsuri corecte.",
         "## Intervale, nu puncte fixe",
-        "Orice test are o eroare de măsurare, așa că rapoartele reale dau un interval de încredere, de exemplu "
-        "între 102 și 112. Câteva puncte de diferență între două scoruri nu înseamnă de obicei nimic.",
+        "Orice test are o eroare de măsurare, așa că rapoartele reale dau un interval de încredere în loc de un "
+        "singur număr. O diferență mică între două scoruri nu înseamnă de obicei nimic.",
     ]),
     ("Scorurile din acest joc", [
-        "## Scoruri de test",
-        "Evaluarea completă și probele în stil WAIS afișează scoruri standard, scoruri de indice și un scor total "
-        "(înlocuitorul jocului pentru IQ-ul total), ca să vezi cum este alcătuit un raport real. Normele din "
-        "spatele lor sunt create pentru acest joc, așa că cifrele îți arată doar propriul progres. Le poți ascunde "
-        "din Setări.",
+        "## Calificative",
+        "Probele, cele patru domenii și evaluarea completă primesc un calificativ de la D la S: D, C, B, A și S "
+        "pentru cei mai buni dintre cei mai buni. Calificativul evaluării complete este Calificativul tău general. "
+        "Standardele din spatele lor sunt create pentru acest joc, așa că îți arată doar propriul progres. Le poți "
+        "ascunde din Setări.",
         "## Ratingul puzzle-urilor",
         "Seturile cu rating funcționează ca ratingul pentru problemele de șah. Fiecare puzzle are un nivel de "
         "dificultate, iar ratingul tău crește când rezolvi unul și scade când greșești, cu atât mai mult cu cât "
@@ -143,52 +143,53 @@ SCORES = [
 
 MYTHS = [
     ("Mituri și adevăruri", [
-        "## „IQ-ul rămâne același toată viața.”",
+        "## „Scorul tău rămâne același toată viața.”",
         "Scorurile adulților sunt destul de stabile, dar nu bătute în cuie. Educația, sănătatea și împrejurările "
         "vieții contează, iar scorurile se pot schimba de-a lungul anilor.",
-        "## „Antrenamentul cerebral îți crește IQ-ul.”",
+        "## „Antrenamentul cerebral te face mai inteligent.”",
         "Exersarea te face mai bun la sarcinile pe care le exersezi. Analize ample au găsit puține dovezi că "
         "progresul se transferă asupra inteligenței generale. Acest joc te va face mai bun la aceste puzzle-uri. "
         "Nu te va face mai inteligent.",
-        "## „Un test IQ online mi-a spus ce IQ am.”",
-        "Testele IQ reale sunt standardizate pe eșantioane mari, alese cu grijă, și se aplică în condiții "
-        "controlate. Testele online, inclusiv acest joc, nu sunt, așa că cifrele lor nu pot fi comparate cu "
+        "## „Un test online mi-a spus care e scorul meu real.”",
+        "Evaluările reale sunt standardizate pe eșantioane mari, alese cu grijă, și se aplică în condiții "
+        "controlate. Testele online, inclusiv acest joc, nu sunt, așa că rezultatele lor nu pot fi comparate cu "
         "scorurile reale.",
     ]),
     ("Mituri și adevăruri  (continuare)", [
-        "## „IQ-ul arată cât valorezi.”",
-        "Testele IQ măsoară un set anume de abilități de raționament, memorie și viteză. Nu spun nimic despre "
+        "## „Un scor la test arată cât valorezi.”",
+        "Aceste teste măsoară un set anume de abilități de raționament, memorie și viteză. Nu spun nimic despre "
         "bunătate, creativitate, perseverență sau despre cea mai mare parte din ceea ce face ca o viață să "
         "meargă bine.",
-        "## „O diferență mare între scorurile mele de indice înseamnă că ceva nu e în regulă.”",
-        "Diferențele de 10 puncte sau mai mult între scorurile de indice sunt frecvente în populația generală. "
+        "## „O diferență mare între domeniile mele înseamnă că ceva nu e în regulă.”",
+        "Diferențele clare între domenii sunt frecvente în populația generală. "
         "Doar un specialist calificat, privind întregul tablou, poate spune dacă un anumit profil contează.",
         "## „Scorurile cresc de la o generație la alta.”",
-        "Parțial adevărat. Scorurile medii au crescut cu aproximativ 3 puncte pe deceniu în secolul XX (efectul "
+        "Parțial adevărat. Scorurile medii au crescut constant în secolul XX (efectul "
         "Flynn). Acesta este unul dintre motivele pentru care testele sunt renormate din când în când.",
     ]),
 ]
 
 ABOUT = [
     ("Despre Puzzleth", [
-        "Puzzleth este un joc de antrenament gratuit și open-source, inspirat de structura și regulile de "
-        "administrare ale WAIS-IV. Fiecare puzzle este generat de joc. Niciunul dintre itemii testului real nu "
-        "este folosit, iar jocul nu este afiliat cu editorul testului și nici susținut de acesta.",
-        "## Acesta nu este un test IQ real",
-        "Scorurile sale provin din norme aproximative create pentru acest joc. Nu pot fi comparate cu un IQ real, "
+        "Puzzleth este un joc de antrenament inspirat de structura și regulile de administrare ale evaluărilor "
+        "cognitive individuale reale. Fiecare puzzle este generat de joc. Nu este folosit niciun item dintr-un "
+        "test real, iar jocul nu este afiliat cu niciun editor de teste și nici susținut de vreunul.",
+        "## Acesta nu este un test psihologic",
+        "Calificativele sale provin din standarde aproximative create pentru acest joc. Nu pot fi comparate cu "
+        "rezultatele unei evaluări reale, "
         "nu pot stabili niciun diagnostic și nu trebuie folosite pentru decizii școlare, profesionale, juridice "
         "sau medicale.",
         "## Pentru cine este",
         "Pentru cei care au emoții înaintea unei evaluări și vor să știe cum decurge. Pentru cei cărora le plac "
-        "puzzle-urile grele. Și pentru oricine e curios cum funcționează testele de inteligență.",
+        "puzzle-urile grele. Și pentru oricine e curios cum funcționează aceste evaluări.",
     ]),
 ]
 
 TOPICS = [
     ("expect", "La ce să te aștepți", EXPECT),
     ("subtests", "Cele zece probe", SUBTESTS),
-    ("indexes", "Cei patru indici", INDEXES),
+    ("indexes", "Cele patru domenii", INDEXES),
     ("scores", "Cum se citesc scorurile", SCORES),
-    ("myths", "Mituri despre IQ", MYTHS),
+    ("myths", "Mituri și adevăruri", MYTHS),
     ("about", "Despre joc", ABOUT),
 ]

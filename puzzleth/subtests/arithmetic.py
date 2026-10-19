@@ -246,7 +246,11 @@ class Arithmetic(ItemSubtest):
         if self.touch:
             e = self.keypad.handle(e) or e
         if self.entry.handle(e) == "submit" and self.entry.value:
-            ok = int(self.entry.value) == self.item["ans"]
+            try:
+                entered = int(self.entry.value)
+            except ValueError:
+                entered = None
+            ok = (entered == self.item["ans"])
             self.submit(1 if ok else 0, "" if ok else i18n.f("Answer: {answer}", answer=self.item["ans"]))
 
     def on_timeout(self):

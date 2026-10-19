@@ -1,4 +1,4 @@
-<html lang="en-us"><script src="{{cookiecutter.cdn}}pythons.js" type=module id=site data-LINES={{cookiecutter.LINES}} data-CONSOLE={{cookiecutter.CONSOLE}} data-python=python{{cookiecutter.PYBUILD}} data-os=vtx,fs,snd,gui async defer>#<!--
+<html lang="en-us"><script src="runtime/pythons.js" type=module id=site data-LINES={{cookiecutter.LINES}} data-CONSOLE={{cookiecutter.CONSOLE}} data-python=python{{cookiecutter.PYBUILD}} data-os=vtx,fs,snd,gui async defer>#<!--
 
 print("""
 Loading {{cookiecutter.title}} from {{cookiecutter.archive}}.apk
@@ -285,37 +285,136 @@ function puzzleth_music_ended() {
 }
 
 // The web build serves music next to the page instead of inside the game's download (see
-// tools/build_web.sh), so a song is streamed by its own <audio> element only when it starts.
-function puzzleth_stream_music(url) {
-    puzzleth_stop_music()
-    const track = MM.prepare(url, JSON.stringify({io: "url", type: "audio"}))
-    puzzleth_music = track.trackid
-    track.media.play().catch(() => {})  // refused until the first gesture: puzzleth_start_music
+// tools/build_web.sh), and the page plays it: the game hands over the list of songs once
+// (puzzleth_play_music), and one <audio> element streams them in a shuffled loop, each fading in and
+// out, downloading only the song that is playing. The page moves on to the next song by itself, so the
+// music never stops because the game was idle or its frames were held back. Phones only allow an
+// element to play after a tap; once it has, it may keep playing song after song.
+const PUZZLETH_FADE_IN = 4, PUZZLETH_FADE_OUT = 6   // seconds, as in puzzleth/sound.py
+var puzzleth_songs = [], puzzleth_queue = [], puzzleth_song = null, puzzleth_last_song = null
+var puzzleth_music_on = false, puzzleth_music_level = 1, puzzleth_song_errors = 0
+
+function puzzleth_song_element() {
+    if (!puzzleth_song) {
+        puzzleth_song = new Audio()
+        puzzleth_song.preload = "auto"
+        puzzleth_song.addEventListener("ended", puzzleth_next_song)
+        puzzleth_song.addEventListener("timeupdate", puzzleth_fade_song)
+        puzzleth_song.addEventListener("playing", () => { puzzleth_song_errors = 0 })
+        puzzleth_song.addEventListener("error", () => {
+            // unreachable (offline?) or unplayable: try the next one, but give up after a full round
+            if (puzzleth_music_on && puzzleth_song.getAttribute("src") && ++puzzleth_song_errors < puzzleth_songs.length)
+                setTimeout(puzzleth_next_song, 1000)
+        })
+    }
+    return puzzleth_song
+}
+
+function puzzleth_next_song() {
+    if (!puzzleth_music_on || !puzzleth_songs.length) return
+    if (!puzzleth_queue.length) {
+        puzzleth_queue = puzzleth_songs.slice()
+        for (let i = puzzleth_queue.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [puzzleth_queue[i], puzzleth_queue[j]] = [puzzleth_queue[j], puzzleth_queue[i]]
+        }
+        // no song twice in a row
+        if (puzzleth_queue.length > 1 && puzzleth_queue[puzzleth_queue.length - 1] === puzzleth_last_song)
+            puzzleth_queue.unshift(puzzleth_queue.pop())
+    }
+    const song = puzzleth_song_element()
+    puzzleth_last_song = puzzleth_queue.pop()
+    song.src = puzzleth_last_song
+    song.volume = 0
+    if (!document.hidden)
+        song.play().catch(() => {})  // refused until the first gesture: puzzleth_start_music
+}
+
+function puzzleth_fade_song() {
+    const song = puzzleth_song
+    if (!song || !puzzleth_music_on) return
+    const t = song.currentTime, d = song.duration
+    let f = Math.min(1, t / PUZZLETH_FADE_IN)
+    if (isFinite(d) && d > 0)
+        f = Math.min(f, Math.max(0, (d - t) / PUZZLETH_FADE_OUT))
+    song.volume = Math.max(0, Math.min(1, puzzleth_music_level * f))
+}
+setInterval(puzzleth_fade_song, 100)
+
+function puzzleth_play_music(songs) {
+    puzzleth_songs = JSON.parse(songs)
+    puzzleth_queue = []
+    puzzleth_song_errors = 0
+    puzzleth_music_on = true
+    puzzleth_next_song()
 }
 
 function puzzleth_stop_music() {
-    const media = puzzleth_media()
-    if (media) {
-        media.pause()
-        media.removeAttribute("src")  // stop downloading it
-        media.load()
+    puzzleth_music_on = false
+    if (puzzleth_song) {
+        puzzleth_song.pause()
+        puzzleth_song.removeAttribute("src")
+        puzzleth_song.load()
     }
-    puzzleth_music = 0
 }
 
 function puzzleth_music_volume(v) {
-    const media = puzzleth_media()
-    if (media)
-        media.volume = v
+    puzzleth_music_level = v
+    puzzleth_fade_song()
 }
 
 function puzzleth_start_music() {
     const media = puzzleth_media()
     if (media && media.paused)
         media.play().catch(() => {})
+    if (puzzleth_music_on && puzzleth_song && puzzleth_song.paused && puzzleth_song.getAttribute("src"))
+        puzzleth_song.play().catch(() => {})
 }
 for (const ev of ["pointerdown", "touchend", "keydown"])
     window.addEventListener(ev, puzzleth_start_music, true)
+document.addEventListener("visibilitychange", () => {
+    // quiet while the game is out of sight (another app, a locked phone), back when it returns
+    if (!puzzleth_music_on || !puzzleth_song) return
+    if (document.hidden) puzzleth_song.pause()
+    else puzzleth_start_music()
+})
+
+// Keeping the screen on. A phone that dims and locks while a player is thinking over a puzzle would
+// lose their place, so the game asks for the screen to stay on during puzzles (puzzleth_keep_awake,
+// see puzzleth/web.py). Browsers let go of the lock whenever the page is hidden; it is asked for
+// again when the page is back. The Android app (tools/android) keeps the screen on itself.
+var puzzleth_awake = false, puzzleth_wake_lock = null
+
+function puzzleth_keep_awake(on) {
+    on = !!on
+    if (on === puzzleth_awake) return
+    puzzleth_awake = on
+    if (window.PuzzlethAndroid) {
+        try { PuzzlethAndroid.keepAwake(on) } catch (e) {}
+    }
+    puzzleth_check_wake_lock()
+}
+
+function puzzleth_check_wake_lock() {
+    if (!navigator.wakeLock) return
+    if (puzzleth_awake && !puzzleth_wake_lock && document.visibilityState === "visible") {
+        puzzleth_wake_lock = "asking"
+        navigator.wakeLock.request("screen").then((lock) => {
+            puzzleth_wake_lock = lock
+            lock.addEventListener("release", () => {
+                if (puzzleth_wake_lock === lock) puzzleth_wake_lock = null
+            })
+            if (!puzzleth_awake) puzzleth_check_wake_lock()
+        }).catch(() => { puzzleth_wake_lock = null })   // retried on the next tap
+    } else if (!puzzleth_awake && puzzleth_wake_lock && puzzleth_wake_lock !== "asking") {
+        const lock = puzzleth_wake_lock
+        puzzleth_wake_lock = null
+        lock.release().catch(() => {})
+    }
+}
+document.addEventListener("visibilitychange", puzzleth_check_wake_lock)
+for (const ev of ["pointerup", "keydown"])
+    window.addEventListener(ev, puzzleth_check_wake_lock, true)
 
 // Sound effects and spoken digits play through SDL's Web Audio context, not an <audio> element.
 // Phones start it suspended and only let it run once resumed from inside a gesture that counts
@@ -371,6 +470,9 @@ function puzzleth_new_tab(url) {
 }
 
 function puzzleth_open_url(url) {
+    if (window.PuzzlethAndroid) {   // the Android app (tools/android) opens it in the phone's browser
+        try { PuzzlethAndroid.openUrl(url); return } catch (e) {}
+    }
     if (!puzzleth_new_tab(url))
         puzzleth_pending_url = url
 }
@@ -467,10 +569,8 @@ function puzzleth_fetch_result(id) {
     <!-- Puzzleth: pygbag 0.9 default template (MIT, (c) 2022 pygame wasm) with a dark background
          and home-screen icon; see tools/build_web.sh -->
 
-    <link rel="prefetch" href="{{cookiecutter.cdn}}pythonrc.py">
-    <link rel="prefetch" href="{{cookiecutter.cdn}}vt/xterm.js">
-    <link rel="prefetch" href="{{cookiecutter.cdn}}vt/xterm-addon-image.js">
-    <link rel="prefetch" href="{{cookiecutter.cdn}}vt/xterm-addon-image.js">
+    <link rel="prefetch" href="runtime/vt/xterm.js">
+    <link rel="prefetch" href="runtime/vt/xterm-addon-image.js">
 
 
     <link rel="icon" type="image/png" href="favicon.png" sizes="16x16">
@@ -552,7 +652,7 @@ function puzzleth_fetch_result(id) {
         }
     </style>
 
-    <script src="{{cookiecutter.cdn}}/browserfs.min.js"></script>
+    <script src="runtime/browserfs.min.js"></script>
 
 </head>
 
@@ -613,7 +713,7 @@ frameborder="1"
                 mozallowfullscreen="true"
                 sandbox="allow-same-origin allow-top-navigation allow-scripts allow-pointer-lock"
                 allow="autoplay; fullscreen *; geolocation; microphone; camera; midi; monetization; xr-spatial-tracking; gamepad; gyroscope; accelerometer; xr; cross-origin-isolated"
-                src="{{cookiecutter.cdn}}empty.html"
+                src="runtime/empty.html"
                 scrolling="yes">
             </iframe>
         </div>
