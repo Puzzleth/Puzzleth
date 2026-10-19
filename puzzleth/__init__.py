@@ -1,6 +1,6 @@
 """Puzzleth: a cognitive puzzle training game."""
 
-VERSION = "0.0.3"
+VERSION = "0.0.4"
 STAGE = "PRE-ALPHA"
 
 
