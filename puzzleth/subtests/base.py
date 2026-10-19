@@ -500,6 +500,8 @@ class SpeedSubtest(Subtest):
             before = self.remaining
             timer_dt = getattr(self.app, "timer_dt", dt)
             self.remaining -= timer_dt
+            if self.remaining <= 1e-9:
+                self.remaining = 0.0
             tick_last_seconds(before, self.remaining)
             if self.remaining <= 0:
                 self.remaining = 0
