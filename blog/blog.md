@@ -11,7 +11,7 @@ Here, I'll document the game's development, design decisions, experiments, bugs,
 
 This will also be a sort of journal for me.
 
-You will eventually be able to purchase the first game from Puzzleth soon!
+[You can now play Puzzleth by clicking here!](https://puzzleth.github.io/Puzzleth/game/)
 
 Thanks for being here!
 
