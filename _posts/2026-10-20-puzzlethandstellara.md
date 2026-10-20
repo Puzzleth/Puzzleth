@@ -16,7 +16,7 @@ A new game named [Stellara](https://stellara-edu.vercel.app/) is live as a proto
 
 This game has the funniest backstory. I have recently purchased a subscription to Cursor, which came with Grok Bot. I decided it would be fun to give it access to my email "just in case [The God of Play, Tet](https://no-game-no-life.fandom.com/wiki/Tet) were to challenge me to a game." What initially started as a funny joke regarding gods from anime evolved into a game.
 
-## Notes I wrote about Stellara:
+## Notes I (along with Grok Bot when it found the email) wrote about Stellara:
 
 The astrology email, night of Oct 18 to 19. A newsletter, explained how planets "rule" zodiac signs. Saturn rules Capricorn, an earth sign and his "day house", and Aquarius, an air sign and his "night house". One line stood out: "Capricorn holds through weight. Aquarius holds through pattern." The idea was to turn that structure into puzzle rules, presented as real astronomy, history and mythology rather than as believing in astrology.
 
