@@ -11,7 +11,9 @@ Here, I'll document the game's development, design decisions, experiments, bugs,
 
 This will also be a sort of journal for me.
 
-[You can now play Puzzleth by clicking here!](https://puzzleth.github.io/Puzzleth/game/)
+[You can now play Puzzleth by clicking here!](https://puzzleth.vercel.app/)
+
+[You can also play its sequel, Stellara, by clicking here!](https://stellara-edu.vercel.app/)
 
 Thanks for being here!
 
