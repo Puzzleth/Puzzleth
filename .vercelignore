@@ -1,0 +1,3 @@
+# Vercel installs requirements.txt whenever it sees one, and pygame-ce can't be compiled on its
+# build machine. The web build (tools/build_web.sh) only needs pygbag and fonttools.
+requirements.txt
