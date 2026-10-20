@@ -31,3 +31,5 @@ First idea, Oct 19 at 5:36 AM. I filed it in an ideas folder, "Planets ruling ho
 Second idea, 20 minutes later. The retrograde part grew into another idea, "Telescope view vs. system view". You'd look at a confusing telescope view from Earth and a simple top-down view of the solar system, and solve puzzles by matching the two. Fez, Superliminal, Monument Valley and Outer Wilds were the inspirations.
 
 The name, Oct 20 at 2:32 AM. I mentioned my next game, "Stellara", an astronomy edutainment game for Gen Alpha, Beta and Gamma. With my main focus being high school education.
+
+*--Luca*
