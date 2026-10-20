@@ -1,8 +1,7 @@
-# Publishes puzzleth.github.io/Puzzleth: the Jekyll site from the website branch at the root and the
-# browser version of the game from main under /game. Both branches carry this same file, so a push to
-# either one rebuilds the whole site (a deploy replaces everything that was published before).
+# Publishes puzzleth.github.io/Puzzleth: the Jekyll site from the website branch. The browser version
+# of the game is hosted on Vercel, which builds it from main.
 # One-time setup: repository Settings > Pages > Source: "GitHub Actions".
-name: Website and web game
+name: Website
 
 on:
   push:
@@ -19,51 +18,15 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: main
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - run: pip install -r requirements.txt
-      - run: python -m unittest discover -s tests
-        env:
-          SDL_VIDEODRIVER: dummy
-      - uses: actions/setup-node@v4
-        with:
-          node-version: "24"
-      - run: npm test   # the leaderboard server
-        working-directory: server
-
   build:
-    needs: test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: website
-          path: site
-      - uses: actions/checkout@v4
-        with:
-          ref: main
-          path: game
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - run: pip install pygbag==0.9.2 fonttools
-      - run: command -v ffmpeg || (sudo apt-get update && sudo apt-get install -y ffmpeg)   # converts added .wav/.mp3
-      - run: tools/build_web.sh
-        working-directory: game
       - uses: actions/configure-pages@v5
       - uses: actions/jekyll-build-pages@v1
         with:
-          source: ./site
+          source: ./
           destination: ./_site
-      # Jekyll builds in a container as root, so its output needs sudo to add to
-      - run: sudo cp -r game/build/web _site/game
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site
