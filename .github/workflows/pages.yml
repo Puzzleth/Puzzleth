@@ -6,7 +6,7 @@ name: Website and web game
 
 on:
   push:
-    branches: [main, website]
+    branches: [website]
   workflow_dispatch:
 
 permissions:
