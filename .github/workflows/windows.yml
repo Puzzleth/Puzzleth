@@ -29,6 +29,10 @@ jobs:
           version=$(python -c "import puzzleth; print(puzzleth.VERSION)")
           [[ "${GITHUB_REF_NAME}" == "v$version" ]] || { echo "tag ${GITHUB_REF_NAME} isn't v$version"; exit 1; }
 
+      - name: Download the music
+        shell: bash
+        run: tools/fetch_music.sh
+
       - name: Build
         shell: bash
         run: >

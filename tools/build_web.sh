@@ -17,6 +17,9 @@ if [[ "$found" != "$PYGBAG_VERSION" ]]; then
   exit 1
 fi
 
+# the music isn't in the repository: fetch any songs not downloaded yet
+tools/fetch_music.sh
+
 # only the game itself goes into the web package (not tests, docs or screenshots)
 rm -rf build/Puzzleth build/web
 mkdir -p build/Puzzleth/puzzleth

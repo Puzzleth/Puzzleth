@@ -56,6 +56,7 @@ Nix. Otherwise install it first (Python 3.10 or newer):
 
 ```sh
 pip install -r requirements.txt
+tools/fetch_music.sh   # downloads the music (it isn't kept in the repository)
 python3 main.py
 ```
 
@@ -220,6 +221,7 @@ License (see `puzzleth/fonts/`). The web page template is adapted from pygbag's 
 effects are synthesized by `tools/make_sounds.py`, and the spoken digits were made with
 [Piper](https://github.com/rhasspy/piper)'s LJSpeech voice, whose recordings are public domain.
 
-**Music.** All music is made by [**andrii g.**](https://pixabay.com/users/andriig-54059306/) on Pixabay, in `puzzleth/music/`, is used under the
+**Music.** All music is made by [**andrii g.**](https://pixabay.com/users/andriig-54059306/) on Pixabay, is downloaded into `puzzleth/music/` by `tools/fetch_music.sh` from the URLs in
+`puzzleth/music/songs.txt`, and is used under the
 [Pixabay Content License](https://pixabay.com/service/license-summary/). It isn't covered by this
 project's license.

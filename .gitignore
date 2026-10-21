@@ -3,3 +3,9 @@ __pycache__/
 .venv/
 build/
 .DS_Store
+graphify-out/
+.vercel
+.env*
+
+# the music is downloaded by tools/fetch_music.sh (puzzleth/music/songs.txt)
+puzzleth/music/*.mp3
