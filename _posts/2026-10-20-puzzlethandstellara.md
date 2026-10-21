@@ -12,7 +12,7 @@ After some testing, I, along with my testers, found some game breaking bugs. I f
 
 # Stellara
 
-A new game named [Stellara](https://stellara-edu.vercel.app/) is live as a prototype!
+A new game named [Stellara](https://stellaras.vercel.app/) is live as a prototype!
 
 This game has the funniest backstory. I have recently purchased a subscription to Cursor, which came with Grok Bot. I decided it would be fun to give it access to my email "just in case [The God of Play, Tet,](https://no-game-no-life.fandom.com/wiki/Tet) were to challenge me to a game." What initially started as a funny joke regarding gods from anime evolved into a game.
 

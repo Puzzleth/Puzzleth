@@ -13,7 +13,7 @@ This will also be a sort of journal for me.
 
 [You can now play Puzzleth by clicking here!](https://puzzleth.vercel.app/)
 
-[You can also play its sequel, Stellara, by clicking here!](https://stellara-edu.vercel.app/)
+[You can also play its sequel, Stellaras, by clicking here!](https://stellaras.vercel.app/)
 
 Thanks for being here!
 
