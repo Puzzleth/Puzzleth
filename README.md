@@ -208,7 +208,7 @@ that daily puzzles are identical for every player.
 
 ## License
 
-Copyright (c) 2026 Luca Silviu Huci. **All rights reserved.** This is proprietary software: you're welcome to
+Copyright (c) 2026 Liliana Silvia Huci. **All rights reserved.** This is proprietary software: you're welcome to
 play the official builds above, but no permission is granted to copy, modify, re-host or
 distribute the game or its code. See [LICENSE](LICENSE).
 

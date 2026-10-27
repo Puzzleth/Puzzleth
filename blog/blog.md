@@ -17,4 +17,4 @@ This will also be a sort of journal for me.
 
 Thanks for being here!
 
--Luca
+-Lily
