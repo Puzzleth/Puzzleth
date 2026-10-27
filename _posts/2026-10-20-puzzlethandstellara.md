@@ -32,4 +32,4 @@ Second idea, 20 minutes later. The retrograde part grew into another idea, "Tele
 
 The name, Oct 20 at 2:32 AM. I mentioned my next game, "Stellara", an astronomy edutainment game for Gen Alpha, Beta and Gamma. With my main focus being high school education.
 
-*--Luca*
+*--Lily*
